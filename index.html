@@ -1,0 +1,1169 @@
+<title>Pulso Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+/* Layout: una pantalla a la vez. Barra superior con riel de 5 pasos; cada pantalla entra con un movimiento de cámara (profundidad + enfoque) y avanza sola al completarse */
+:root{
+  --bg:#F3F4F6; --surface:#FFFFFF; --raised:#F9FAFB; --sunk:#E8EAEE; --ink:#0C0E13; --muted:#5A6070; --faint:#8C92A1; --line:#E0E3E9;
+  --accent:#2B45F0; --accent-ink:#FFFFFF; --accent-soft:#E7EBFE;
+  --ok:#11845A; --ok-soft:#DDF2E9; --warn:#A86500; --warn-soft:#FAEED8; --bad:#CF3626; --bad-soft:#FBE3DF;
+  --shadow:0 1px 2px rgba(12,14,19,.05),0 10px 30px -10px rgba(12,14,19,.12);
+  --shadow-lift:0 2px 4px rgba(12,14,19,.06),0 24px 48px -16px rgba(12,14,19,.22);
+  --f-ui:"Geist","Helvetica Neue","Segoe UI",system-ui,sans-serif;
+  --f-serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --f-mono:"Geist Mono",ui-monospace,Menlo,Consolas,monospace;
+  --expo:cubic-bezier(.16,1,.3,1); --in:cubic-bezier(.7,0,.84,0); --spring:cubic-bezier(.34,1.56,.64,1);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0A0B0E; --surface:#13151A; --raised:#181B21; --sunk:#1D2027; --ink:#F1F2F5; --muted:#A1A7B5; --faint:#6C7282; --line:#262A33;
+  --accent:#7088FF; --accent-ink:#0A0B0E; --accent-soft:#1B2251;
+  --ok:#3DC48D; --ok-soft:#0F2A20; --warn:#E3A647; --warn-soft:#2C2312; --bad:#F06A5A; --bad-soft:#341815;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -10px rgba(0,0,0,.6); --shadow-lift:0 2px 4px rgba(0,0,0,.4),0 24px 48px -16px rgba(0,0,0,.8);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A0B0E; --surface:#13151A; --raised:#181B21; --sunk:#1D2027; --ink:#F1F2F5; --muted:#A1A7B5; --faint:#6C7282; --line:#262A33;
+  --accent:#7088FF; --accent-ink:#0A0B0E; --accent-soft:#1B2251;
+  --ok:#3DC48D; --ok-soft:#0F2A20; --warn:#E3A647; --warn-soft:#2C2312; --bad:#F06A5A; --bad-soft:#341815;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -10px rgba(0,0,0,.6); --shadow-lift:0 2px 4px rgba(0,0,0,.4),0 24px 48px -16px rgba(0,0,0,.8);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{margin:0;color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0;overflow-x:hidden}
+img{max-width:100%}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.mono{font-family:var(--f-mono)} .num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+
+/* Barra superior */
+.top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;height:68px;max-width:1120px;margin:0 auto}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;letter-spacing:-.02em}
+.mark{position:relative;width:20px;height:20px;border-radius:50%;background:var(--ink)}
+.mark::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--accent);animation:beat 2.4s var(--expo) infinite}
+@keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.35)}24%{transform:scale(1)}}
+.rail{position:relative;justify-self:center;display:flex;list-style:none;margin:0;padding:0;min-width:0;max-width:100%}
+.rail::before{content:"";position:absolute;top:15px;left:46px;right:46px;height:2px;border-radius:2px;background:var(--line)}
+.rail .fill{position:absolute;top:15px;height:2px;border-radius:2px;background:var(--ink);width:0;transition:width .9s var(--expo),left .9s var(--expo)}
+.node{position:relative;z-index:1;width:92px}
+.node button{width:100%;display:flex;flex-direction:column;align-items:center;gap:7px;border:0;background:none;padding:6px 0;cursor:pointer}
+.node .dot{width:18px;height:18px;border-radius:50%;background:var(--bg);border:2px solid var(--line);display:grid;place-items:center;transition:all .5s var(--expo)}
+.node .dot svg{width:10px;height:10px;opacity:0;transform:scale(.4);transition:all .4s var(--spring)}
+.node .lbl{font-size:.74rem;color:var(--faint);font-weight:500;transition:color .3s}
+.node.done .dot{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.node.done .dot svg{opacity:1;transform:none}
+.node.cur .dot{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
+.node.cur .lbl{color:var(--ink);font-weight:600}
+.node.done .lbl{color:var(--muted)}
+.node.locked button{cursor:not-allowed}
+.shake{animation:shake .45s}
+@keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+.top-right{display:flex;align-items:center;gap:10px;justify-self:end}
+.credits{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:.84rem;font-weight:500}
+.credits b{font-family:var(--f-mono);font-weight:500}
+.avatar{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:600;font-size:.85rem;transition:transform .3s var(--spring)}
+.avatar:hover{transform:scale(1.06)}
+.menu{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:62px;z-index:40;min-width:240px;padding:6px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-lift);transform-origin:top right}
+.menu .who{padding:10px 12px 8px;font-size:.8rem;color:var(--muted);border-bottom:1px solid var(--line);margin-bottom:4px;word-break:break-all}
+.menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:9px;cursor:pointer;font-size:.9rem}
+.menu button:hover{background:var(--sunk)}
+
+/* Escenario */
+.stage{position:relative;max-width:1120px;margin:0 auto}
+.screen{padding-block:44px 140px;display:flex;flex-direction:column;gap:28px;transform-origin:50% 0}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:var(--f-mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.eyebrow::before{content:"";width:18px;height:2px;border-radius:2px;background:var(--accent)}
+.hl{font-size:clamp(2.3rem,6.2vw,4.5rem);font-weight:600;letter-spacing:-.04em;line-height:1.02;max-width:16ch}
+.hl.sm{font-size:clamp(2rem,4.6vw,3.3rem);max-width:22ch}
+.hl em{font-family:var(--f-serif);font-style:italic;font-weight:400;letter-spacing:-.01em;color:var(--accent)}
+.hl .ln{display:block;overflow:hidden;padding-bottom:.1em;margin-bottom:-.1em}
+.hl .ln>span{display:inline-block}
+.lede{font-size:1.1rem;color:var(--muted);max-width:56ch}
+.head{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.stack{display:flex;flex-direction:column;gap:14px}
+.between{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+
+/* Botones */
+.btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:10px;height:48px;padding:0 22px;border-radius:999px;border:1px solid var(--line);text-decoration:none;
+  background:var(--surface);color:var(--ink);cursor:pointer;font-weight:600;font-size:.94rem;white-space:nowrap;transition:transform .35s var(--spring),box-shadow .3s,background .3s,border-color .3s,color .3s}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--shadow)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover:not(:disabled){color:var(--ink);box-shadow:none;background:var(--sunk)}
+.btn.sm{height:36px;padding:0 14px;font-size:.84rem}
+.btn.warn{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn .arrow{transition:transform .35s var(--spring)}
+.btn:hover:not(:disabled) .arrow{transform:translateX(4px)}
+.btn.is-busy{pointer-events:none}
+.btn.is-done{background:var(--ok)!important;border-color:var(--ok)!important;color:#fff!important}
+.spin{display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:rot .7s linear infinite;flex:none}
+@keyframes rot{to{transform:rotate(360deg)}}
+.tick{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.tick path{stroke-dasharray:24;stroke-dashoffset:24;animation:draw .45s .05s var(--expo) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.ripple{position:absolute;border-radius:50%;pointer-events:none;background:currentColor;opacity:.22;transform:scale(0)}
+.cost{font-family:var(--f-mono);font-size:.74rem;color:var(--faint)}
+.back{align-self:flex-start;border:0;background:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:4px 0;display:inline-flex;gap:8px;align-items:center}
+.back:hover{color:var(--ink)}
+
+/* Campos */
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.field label,.lbl{font-size:.78rem;font-weight:600;color:var(--muted);letter-spacing:.01em}
+.input{width:100%;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;font-size:1rem;transition:border-color .25s,box-shadow .25s}
+.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+textarea.input{resize:vertical;min-height:96px;line-height:1.5}
+.big{position:relative}
+.big input,.big textarea{width:100%;border:0;border-bottom:2px solid var(--line);background:transparent;padding:10px 0 14px;font-size:clamp(1.3rem,3vw,1.9rem);font-weight:500;letter-spacing:-.02em;outline:none;resize:none;line-height:1.3}
+.big::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .6s var(--expo)}
+.big:focus-within::after{transform:scaleX(1)}
+.big input::placeholder,.big textarea::placeholder{color:var(--faint);opacity:.7}
+.field.err .input,.field.err .big input,.field.err .big textarea,.field.err .chips-in{border-color:var(--bad)}
+.field.err{animation:shake .45s}
+.hint{font-size:.82rem;color:var(--faint)}
+.chips-in{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0 12px;border-bottom:2px solid var(--line);cursor:text}
+.chips-in input{flex:1;min-width:160px;border:0;background:transparent;outline:none;font-size:1.1rem;padding:6px 0}
+.tag{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 12px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:500;font-size:.9rem;animation:pop .45s var(--spring)}
+.tag button{width:22px;height:22px;border-radius:50%;border:0;background:transparent;color:inherit;cursor:pointer;font-size:1rem;line-height:1}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+.seg{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:4px;border-radius:999px;background:var(--sunk);align-self:flex-start}
+.seg button{position:relative;z-index:1;border:0;background:none;padding:9px 18px;cursor:pointer;font-weight:500;font-size:.9rem;color:var(--muted);transition:color .3s;border-radius:999px}
+.seg button[aria-pressed="true"]{color:var(--ink)}
+.seg .thumb{position:absolute;top:4px;bottom:4px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow);transition:left .5s var(--expo),width .5s var(--expo)}
+.otp{display:flex;gap:10px}
+.otp input{width:56px;height:68px;text-align:center;font-size:1.8rem;font-weight:600;border-radius:14px;border:1px solid var(--line);background:var(--surface);transition:border-color .2s,transform .3s var(--spring),box-shadow .2s}
+.otp input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);transform:translateY(-2px)}
+.otp input.filled{border-color:var(--ink)}
+
+/* Selección grande */
+.choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.choice{position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 20px;border-radius:16px;border:1px solid var(--line);background:var(--surface);cursor:pointer;text-align:left;font-size:1.02rem;font-weight:500;
+  transition:transform .4s var(--spring),border-color .3s,background .3s,box-shadow .3s,color .3s}
+.choice:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.choice .mono{font-size:.75rem;color:var(--faint)}
+.choice.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.choice.on .mono{color:inherit;opacity:.7}
+
+/* Fuentes y credenciales */
+.src{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:18px 20px;border-radius:16px;border:1px solid var(--line);background:var(--surface);transition:border-color .3s}
+.src b{font-weight:600}
+.src p{font-size:.88rem;color:var(--muted)}
+.src.off b,.src.off>div>p:first-of-type{opacity:.6}
+.switch{position:relative;width:46px;height:28px;border-radius:999px;border:0;background:var(--line);cursor:pointer;transition:background .35s;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .45s var(--spring)}
+.switch[aria-checked="true"]{background:var(--ok)}
+.switch[aria-checked="true"]::after{transform:translateX(18px)}
+.switch:disabled{opacity:.4;cursor:not-allowed}
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:.72rem;font-weight:600;white-space:nowrap}
+.badge.ok{background:var(--ok-soft);color:var(--ok)} .badge.req{background:var(--accent-soft);color:var(--accent)} .badge.off{background:var(--sunk);color:var(--muted)}
+.badge.ok::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.cred{display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:18px;border:1px solid var(--line);background:var(--surface);transition:border-color .4s,box-shadow .4s}
+.cred.focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.cred.connected{background:var(--raised)}
+.cred-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .55s var(--expo),opacity .4s}
+.cred-body>div{overflow:hidden;display:flex;flex-direction:column;gap:12px;min-height:0}
+.cred.connected .cred-body{grid-template-rows:0fr;opacity:0}
+.cred.connected.edit .cred-body{grid-template-rows:1fr;opacity:1}
+.secret{position:relative}
+.secret .input{padding-right:70px;font-family:var(--f-mono);font-size:.9rem}
+.secret button{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);cursor:pointer;padding:6px 8px;font-size:.78rem}
+.progress-line{height:4px;border-radius:4px;background:var(--sunk);overflow:hidden}
+.progress-line i{display:block;height:100%;background:var(--ink);border-radius:4px;transition:width .8s var(--expo)}
+
+/* Escaneo */
+.scan{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:40px;align-items:center}
+.counter{font-family:var(--f-serif);font-size:clamp(5rem,14vw,9.5rem);line-height:.85;letter-spacing:-.03em}
+.counter small{display:block;font-family:var(--f-ui);font-size:1rem;letter-spacing:0;color:var(--muted);margin-top:14px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.srow b{font-weight:600}
+.srow .st{font-size:.84rem;color:var(--muted);grid-column:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .n{grid-row:1/3;grid-column:2;align-self:center;font-family:var(--f-mono);font-size:1.25rem}
+.srow .track{grid-column:1/-1;height:2px;background:var(--line);border-radius:2px;overflow:hidden;position:relative}
+.srow .track i{position:absolute;inset:0 auto 0 0;width:0;background:var(--ink);transition:width .8s var(--expo)}
+.srow.run .track i{width:35%;animation:slide 1.3s var(--expo) infinite}
+.srow.ok .track i{width:100%;background:var(--ok)}
+.srow.err .track i{width:100%;background:var(--bad)}
+.srow.err .st{color:var(--bad);white-space:normal}
+@keyframes slide{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+
+/* Tendencias */
+.trends{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.trend{position:relative;display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:20px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);
+  transition:transform .5s var(--expo),box-shadow .4s,border-color .3s}
+.trend::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .4s;
+  background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--accent) 9%,transparent),transparent 50%)}
+.trend:hover{box-shadow:var(--shadow-lift)}
+.trend:hover::after{opacity:1}
+.trend.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),var(--shadow-lift)}
+.t-top{display:flex;gap:16px;align-items:center}
+.ring{position:relative;width:62px;height:62px;flex:none}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}
+.ring .bg{stroke:var(--sunk)} .ring .fg{stroke:var(--accent);stroke-linecap:round;stroke-dasharray:163.4;stroke-dashoffset:163.4;transition:stroke-dashoffset 1.4s var(--expo)}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:1.1rem;font-weight:700;font-variant-numeric:tabular-nums}
+.trend h3{font-size:1.08rem;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.stage-t{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.stage-t.emergente{color:var(--ok)} .stage-t.pico{color:var(--accent)} .stage-t.estable{color:var(--muted)} .stage-t.saturada{color:var(--warn)}
+.why{font-size:.92rem;color:var(--muted)}
+.angle{font-size:.9rem;padding:12px 14px;border-radius:12px;background:var(--raised);border:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--sunk);font-size:.76rem;color:var(--muted);font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.src-c{background:var(--accent-soft);color:var(--accent)}
+details.ev summary{cursor:pointer;font-size:.84rem;font-weight:600;color:var(--muted);list-style:none;display:flex;align-items:center;gap:8px}
+details.ev summary::-webkit-details-marker{display:none}
+details.ev summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .3s var(--expo)}
+details.ev[open] summary::before{transform:rotate(45deg)}
+details.ev ul{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:.84rem}
+details.ev li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px}
+details.ev li .s{font-family:var(--f-mono);font-size:.74rem;color:var(--accent)}
+details.ev a{color:var(--ink);text-decoration-color:var(--line)}
+.trend .btn{margin-top:auto;align-self:flex-start}
+.pinned{display:inline-flex;align-items:center;gap:12px;padding:8px 18px 8px 8px;border-radius:999px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);max-width:100%}
+.pinned .ring{width:38px;height:38px} .pinned .ring b{font-size:.74rem} .pinned .ring circle{stroke-width:6}
+.pinned span{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Brief */
+.brief{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:48px;align-items:start}
+.steps-mini{display:flex;flex-direction:column;gap:6px;position:sticky;top:24px;padding-top:8px}
+.steps-mini button{display:flex;align-items:center;gap:12px;border:0;background:none;padding:7px 0;cursor:pointer;color:var(--faint);font-size:.92rem;text-align:left}
+.steps-mini button i{width:8px;height:8px;border-radius:50%;background:var(--line);transition:all .4s var(--spring)}
+.steps-mini button.done{color:var(--muted)} .steps-mini button.done i{background:var(--ink)}
+.steps-mini button.cur{color:var(--ink);font-weight:600} .steps-mini button.cur i{background:var(--accent);transform:scale(1.5)}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:40px;height:40px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;transition:transform .35s var(--spring),box-shadow .3s}
+.sw:hover{transform:scale(1.1)}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink);transform:scale(1.08)}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.sum{position:relative;padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--line);cursor:pointer;text-align:left;transition:transform .4s var(--spring),box-shadow .3s}
+.sum:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.sum .lbl{display:block;margin-bottom:6px}
+.sum .edit{position:absolute;top:16px;right:16px;font-size:.78rem;color:var(--accent);font-weight:600;opacity:0;transition:opacity .3s}
+.sum:hover .edit,.sum:focus-visible .edit{opacity:1}
+
+/* Guion */
+.ctx{display:flex;flex-wrap:wrap;gap:8px}
+.ctx .chip{height:30px;font-size:.82rem}
+.hooks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.hook{position:relative;padding:20px;border-radius:18px;background:var(--surface);border:1px solid var(--line);font-size:1.08rem;font-weight:500;line-height:1.4;letter-spacing:-.01em}
+.hook span{display:block;font-family:var(--f-serif);font-style:italic;font-size:1.9rem;line-height:1;color:var(--accent);margin-bottom:10px}
+.timeline{display:flex;gap:4px;min-height:58px}
+.seg-b{position:relative;min-width:0;border:0;border-radius:10px;background:var(--sunk);color:var(--ink);cursor:pointer;padding:8px 10px;text-align:left;overflow:hidden;transition:background .35s,color .35s,transform .35s var(--spring)}
+.seg-b:hover{transform:translateY(-2px)}
+.seg-b small{display:block;font-family:var(--f-mono);font-size:.68rem;opacity:.7}
+.seg-b b{display:block;font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg-b[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.beat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:22px;border-radius:18px;background:var(--surface);border:1px solid var(--line)}
+.beat .lbl{display:block;margin-bottom:6px}
+.beat .big-t{font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+.tabs{position:relative;display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{border:0;background:none;padding:12px 16px;cursor:pointer;font-weight:500;color:var(--muted);white-space:nowrap;transition:color .3s}
+.tab[aria-selected="true"]{color:var(--ink)}
+.tabs .ind{position:absolute;bottom:0;height:2px;background:var(--ink);border-radius:2px;transition:left .5s var(--expo),width .5s var(--expo)}
+.copies{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.copy{display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:18px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.copy pre{margin:0;white-space:pre-wrap;font-family:var(--f-ui);font-size:.93rem;line-height:1.55}
+.copy textarea{min-height:170px}
+.json{width:100%;min-height:440px;font-family:var(--f-mono);font-size:.78rem;line-height:1.65;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;resize:vertical;white-space:pre;overflow:auto;color:var(--ink)}
+.json:focus{outline:none;border-color:var(--accent)}
+.json.bad{border-color:var(--bad)}
+.err-msg{color:var(--bad);font-size:.86rem}
+.skel{position:relative;overflow:hidden;border-radius:14px;background:var(--sunk)}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--surface) 60%,transparent),transparent);animation:shimmer 1.6s infinite}
+@keyframes shimmer{to{transform:translateX(100%)}}
+.writing{display:flex;align-items:center;gap:14px;font-size:1.05rem}
+.writing .spin{color:var(--accent)}
+
+/* Producción */
+.reel{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 14px;scroll-snap-type:x proximity}
+.tile{position:relative;flex:none;display:flex;flex-direction:column;gap:10px;scroll-snap-align:start}
+.tile .frame{position:relative;border-radius:16px;overflow:hidden;background:var(--sunk);border:1px solid var(--line);transition:transform .5s var(--expo),box-shadow .4s,border-color .3s}
+.tile.v .frame{width:200px;aspect-ratio:9/16;max-width:100%}
+.tile.c .frame{width:220px;aspect-ratio:4/5;max-width:100%}
+.tile:hover .frame{transform:translateY(-3px);box-shadow:var(--shadow-lift)}
+.tile .frame img,.tile .frame iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
+.ph{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;padding:16px;background:linear-gradient(160deg,var(--raised),var(--sunk))}
+.ph b{font-size:1rem;font-weight:600;line-height:1.25;letter-spacing:-.01em}
+.ph small{font-size:.76rem;color:var(--muted)}
+.ph .n{position:absolute;top:14px;left:16px;font-family:var(--f-serif);font-style:italic;font-size:2rem;line-height:1;color:var(--faint)}
+.tile .meta{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted);width:200px}
+.tile.c .meta{width:220px}
+.tile .acts{display:flex;gap:6px;flex-wrap:wrap;width:220px}
+.tile.v .acts{width:200px}
+.tile .acts .btn{height:32px;padding:0 12px;font-size:.78rem}
+.pick{position:absolute;top:10px;right:10px;z-index:3;width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.9);background:rgba(0,0,0,.28);cursor:pointer;display:grid;place-items:center;color:#fff;transition:transform .4s var(--spring),background .3s,border-color .3s}
+.pick svg{width:14px;height:14px;opacity:0;transform:scale(.3);transition:all .35s var(--spring)}
+.pick[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);transform:scale(1.1)}
+.pick[aria-pressed="true"] svg{opacity:1;transform:none}
+.tile.picked .frame{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.takes{position:absolute;bottom:10px;left:10px;z-index:3;display:flex;gap:4px}
+.takes button{width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;font-size:.72rem}
+.takes button[aria-pressed="true"]{background:#fff;color:#000}
+.play{position:absolute;inset:0;z-index:2;display:grid;place-items:center;border:0;background:linear-gradient(transparent 50%,rgba(0,0,0,.45));cursor:pointer}
+.play span{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;transition:transform .4s var(--spring)}
+.play:hover span{transform:scale(1.12)}
+.play svg{width:18px;height:18px;margin-left:3px;fill:#000}
+.working{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px;text-align:center;background:color-mix(in srgb,var(--surface) 78%,transparent);backdrop-filter:blur(8px);font-size:.84rem;font-weight:500}
+.working .spin{color:var(--accent);width:24px;height:24px}
+.working .mono{font-size:.76rem;color:var(--muted)}
+.dock{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,calc(100% + 60px));visibility:hidden;z-index:30;display:flex;align-items:center;gap:16px;padding:8px 8px 8px 22px;border-radius:999px;background:var(--ink);color:var(--bg);box-shadow:var(--shadow-lift);transition:transform .6s var(--spring),visibility 0s .6s;max-width:calc(100% - 32px);white-space:nowrap}
+.dock.on{transform:translate(-50%,0);visibility:visible;transition:transform .6s var(--spring),visibility 0s}
+.dock .btn{background:var(--bg);color:var(--ink);border-color:var(--bg)}
+
+/* Publicación */
+.funnel{display:flex;flex-direction:column;gap:10px}
+.fstep{display:grid;grid-template-columns:140px minmax(0,1fr) 84px;gap:14px;align-items:center;font-size:.9rem}
+.fbar{height:28px;border-radius:8px;background:var(--sunk);overflow:hidden}
+.fbar i{display:block;height:100%;width:0;border-radius:8px;background:var(--ink);transition:width 1s var(--expo)}
+.fstep:nth-child(2) .fbar i{opacity:.8}.fstep:nth-child(3) .fbar i{opacity:.65}.fstep:nth-child(4) .fbar i{background:var(--accent);opacity:1}
+.fstep .num{text-align:right;font-family:var(--f-mono)}
+.money{font-family:var(--f-serif);font-size:clamp(3rem,8vw,4.6rem);line-height:1;letter-spacing:-.02em}
+.done-hero{display:flex;flex-direction:column;align-items:flex-start;gap:22px;padding-block:30px}
+.done-hero .hl{font-size:clamp(3rem,10vw,7rem)}
+
+.sheet{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(10px)}
+.sheet .card{width:100%;max-width:760px;max-height:88vh;overflow:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{padding:16px;border-radius:14px;background:var(--raised);border:1px solid var(--line)}
+.kpi b{display:block;font-size:1.7rem;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+
+.toast{position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));z-index:60;transform:translate(-50%,-180%);padding:12px 18px;border-radius:14px;background:var(--ink);color:var(--bg);font-weight:500;font-size:.9rem;box-shadow:var(--shadow-lift);visibility:hidden;transition:transform .55s var(--spring),visibility 0s .55s;max-width:calc(100% - 32px)}
+.toast.on{transform:translate(-50%,0);visibility:visible;transition:transform .55s var(--spring),visibility 0s}
+.toast.err{background:var(--bad);color:#fff}
+.flip-ghost{position:fixed;z-index:45;pointer-events:none;margin:0;box-sizing:border-box}
+
+@media (max-width:900px){
+  .top{grid-template-columns:auto 1fr;height:auto;padding-block:12px;row-gap:6px}
+  .rail{grid-column:1/-1;grid-row:2;justify-self:stretch;justify-content:space-between}
+  .rail::before{left:9%;right:9%}
+  .node{width:auto;flex:1}
+  .node .lbl{display:none}
+  .node.cur .lbl{display:block}
+  .menu{top:58px}
+  .scan,.brief{grid-template-columns:minmax(0,1fr);gap:28px}
+  .steps-mini{display:none}
+  .hooks{grid-template-columns:minmax(0,1fr)}
+  .beat{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
+  .otp{gap:6px} .otp input{width:44px;height:56px;font-size:1.4rem}
+  .fstep{grid-template-columns:96px minmax(0,1fr) 64px}
+  .timeline{flex-wrap:wrap} .seg-b{flex:1 1 30%!important}
+  .screen{padding-block:28px 140px}
+  .credits .muted{display:none}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<header class="top" id="top">
+  <div class="logo"><span class="mark" aria-hidden="true"></span>Pulso</div>
+  <ol class="rail" id="rail" hidden aria-label="Pasos"></ol>
+  <div class="top-right" id="topRight" hidden>
+    <span class="credits"><span class="muted">Créditos</span><b class="num" id="credits">0</b></span>
+    <button class="avatar" id="avatar" aria-haspopup="true" aria-expanded="false" aria-label="Cuenta"></button>
+  </div>
+</header>
+<div class="menu" id="menu" hidden></div>
+<main class="stage" id="stage" aria-live="polite"></main>
+<div class="dock" id="dock" aria-hidden="true"></div>
+<div class="sheet" id="sheet" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===================================================================
+   Conexión con el servidor
+   - Servida por Apps Script: google.script.run
+   - Alojada en otro dominio: POST a la URL /exec del Web App
+   =================================================================== */
+const IS_GAS = !!(window.google && google.script && google.script.run);
+const store = {
+  get(k){try{return JSON.parse(localStorage.getItem('pulso_'+k))}catch(e){return null}},
+  set(k,v){try{localStorage.setItem('pulso_'+k,JSON.stringify(v))}catch(e){}},
+  del(k){try{localStorage.removeItem('pulso_'+k)}catch(e){}}
+};
+const sess = {
+  get(k){try{return JSON.parse(sessionStorage.getItem('pulso_'+k))}catch(e){return null}},
+  set(k,v){try{sessionStorage.setItem('pulso_'+k,JSON.stringify(v))}catch(e){}},
+  del(k){try{sessionStorage.removeItem('pulso_'+k)}catch(e){}}
+};
+let API_URL = store.get('api_url') || '';
+
+function call(action, payload = {}) {
+  const req = Object.assign({ action, token: S.token }, payload);
+  if (IS_GAS) return new Promise((res, rej) => google.script.run
+    .withSuccessHandler(r => r && r.ok ? res(r) : rej(new Error(r ? r.error : 'El servidor no respondió.')))
+    .withFailureHandler(e => rej(new Error(e && e.message || String(e)))).api(JSON.stringify(req)));
+  if (!API_URL) return Promise.reject(new Error('Conecta primero tu servidor.'));
+  return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(req) })
+    .then(r => r.json(), () => { throw new Error('No pudimos conectar con el servidor. Revisa la URL y que el Web App permita acceso a cualquier usuario.'); })
+    .then(r => { if (!r.ok) throw new Error(r.error); return r; });
+}
+async function poll(action, payload, onTick, every = 3000, max = 160) {
+  for (let i = 0; i < max; i++) { const r = await call(action, payload); if (r.done) return r; onTick && onTick(r, i); await sleep(every); }
+  throw new Error('La operación tardó más de lo esperado. Vuelve a intentarlo en unos minutos.');
+}
+
+/* ===================================================================
+   Estado y utilidades
+   =================================================================== */
+const S = { token: null, user: null, cfg: null, creds: null, project: null, step: 1, inPipeline: false, scan: null, q: { geo: '', niche: '', keywords: [] }, srcOn: new Set(), draft: {}, picked: new Set(), take: {}, jobs: {}, dataUrls: {}, genScript: false, autoScript: false, tab: 'copies', beat: 0, playing: null };
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const pad = n => String(n).padStart(2, '0');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmtN = n => Math.round(n).toLocaleString('es-CR');
+const elapsed = t0 => { const s = Math.floor((Date.now() - t0) / 1000); return pad(Math.floor(s / 60)) + ':' + pad(s % 60); };
+const OBJ = { atraer: 'Atraer', convertir: 'Convertir', cerrar: 'Cerrar venta' };
+const ICON = {
+  check: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2.5 6.3l2.3 2.3L9.5 3.8"/></svg>',
+  play: '<svg viewBox="0 0 12 12"><path d="M2 1l9 5-9 5z"/></svg>'
+};
+const GEO = { CR: 'Costa Rica', MX: 'México', CO: 'Colombia', PA: 'Panamá', GT: 'Guatemala', SV: 'El Salvador', DO: 'Rep. Dominicana', EC: 'Ecuador', PE: 'Perú', CL: 'Chile', AR: 'Argentina', ES: 'España', US: 'Estados Unidos' };
+const SRC = {
+  google_trends: { n: 'Google Trends', d: 'Búsquedas que más crecen hoy en el país.' },
+  youtube: { n: 'YouTube', d: 'Lo más visto del país y Shorts de tu nicho, con vistas por hora.' },
+  openai_web: { n: 'Búsqueda web con OpenAI', d: 'Tendencias de TikTok, Reels, Shorts y LinkedIn con fuentes citadas.' },
+  tiktok_apify: { n: 'TikTok', d: 'Videos por hashtag con reproducciones y audio, vía Apify.' },
+  reddit: { n: 'Reddit', d: 'Conversaciones más votadas de la semana en marketing.' }
+};
+const STEPS = ['Tendencias', 'Brief', 'Guion', 'Producción', 'Publicación'];
+
+/* ===================================================================
+   Movimiento
+   - Entrada de pantalla: la cámara se acerca y enfoca (desenfoque → nítido)
+   - Títulos que suben línea por línea desde una máscara
+   - Morph de la tarjeta elegida hacia la siguiente pantalla
+   - Ondas al presionar, inclinación con luz, contadores
+   =================================================================== */
+function H(text, cls = '') {
+  const lines = text.split('|').map(l => `<span class="ln"><span>${esc(l).replace(/\*(.+?)\*/g, '<em>$1</em>')}</span></span>`).join('');
+  return `<h1 class="hl ${cls}">${lines}</h1>`;
+}
+let queue = Promise.resolve(), ghost = null;
+function show(build, { dir = 1, flipFrom = null } = {}) {
+  closeMenu();
+  if (flipFrom && !reduced) ghost = makeGhost(flipFrom);
+  queue = queue.then(async () => {
+    const stage = $('#stage'), old = stage.firstElementChild;
+    if (old) {
+      if (!reduced) await old.animate([{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: `translateY(${-28 * dir}px) scale(.97)`, filter: 'blur(8px)' }], { duration: 340, easing: 'cubic-bezier(.7,0,.84,0)', fill: 'forwards' }).finished;
+      old.remove();
+    }
+    const el = document.createElement('section'); el.className = 'screen';
+    stage.appendChild(el);
+    renderTop();
+    build(el);
+    window.scrollTo({ top: 0 });
+    enter(el, dir);
+    if (ghost) { const g = ghost; ghost = null; flyGhost(g, el); }
+    renderDock();
+  }).catch(e => { console.error(e); toast(e.message, true); });
+  return queue;
+}
+function enter(el, dir = 1) {
+  if (reduced) return;
+  el.animate([{ opacity: 0, transform: `translateY(${44 * dir}px) scale(1.015)`, filter: 'blur(14px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 900, easing: 'cubic-bezier(.16,1,.3,1)' });
+  $$('.hl .ln > span', el).forEach((s, i) => s.animate([{ transform: 'translateY(110%) rotate(2deg)' }, { transform: 'none' }], { duration: 1000, delay: 120 + i * 90, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }));
+  $$('[data-r]', el).forEach((s, i) => s.animate([{ opacity: 0, transform: 'translateY(22px)', filter: 'blur(6px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 850, delay: 260 + i * 70, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }));
+}
+function makeGhost(src) {
+  const r = src.getBoundingClientRect(), g = src.cloneNode(true);
+  g.classList.add('flip-ghost'); g.style.cssText += `;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;transform:none`;
+  document.body.appendChild(g); src.style.visibility = 'hidden';
+  return { g, r };
+}
+function flyGhost({ g, r }, screen) {
+  const target = $('[data-flip]', screen);
+  if (!target) { g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300 }).finished.then(() => g.remove()); return; }
+  const t = target.getBoundingClientRect();
+  const dx = t.left - r.left, dy = t.top - r.top, sx = t.width / r.width, sy = t.height / r.height;
+  g.style.transformOrigin = '0 0';
+  g.animate([{ transform: 'none', opacity: 1 }, { opacity: .9, offset: .5 }, { transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})`, opacity: 0 }], { duration: 850, easing: 'cubic-bezier(.65,0,.15,1)', fill: 'forwards' }).finished.then(() => g.remove());
+  target.animate([{ opacity: 0, transform: 'scale(.9)' }, { opacity: 1, transform: 'none' }], { duration: 650, delay: 450, easing: 'cubic-bezier(.34,1.56,.64,1)', fill: 'backwards' });
+}
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.btn,.choice,.seg-b,.sum'); if (!b || b.disabled || reduced) return;
+  const r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2, s = document.createElement('span');
+  s.className = 'ripple'; Object.assign(s.style, { width: d + 'px', height: d + 'px', left: e.clientX - r.left - d / 2 + 'px', top: e.clientY - r.top - d / 2 + 'px' });
+  b.appendChild(s); s.animate([{ transform: 'scale(0)', opacity: .25 }, { transform: 'scale(1)', opacity: 0 }], { duration: 700, easing: 'cubic-bezier(.16,1,.3,1)' }).finished.then(() => s.remove());
+});
+document.addEventListener('pointermove', e => {
+  const c = e.target.closest('.trend'); if (!c || reduced || e.pointerType !== 'mouse') return;
+  const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  c.style.transform = `perspective(1000px) rotateX(${(.5 - y) * 4}deg) rotateY(${(x - .5) * 5}deg) translateY(-3px)`;
+  c.style.setProperty('--mx', x * 100 + '%'); c.style.setProperty('--my', y * 100 + '%');
+});
+document.addEventListener('pointerout', e => { const c = e.target.closest('.trend'); if (c && !c.contains(e.relatedTarget)) c.style.transform = ''; });
+
+/** Botón con estados: cargando → hecho (marca dibujada) o error (sacudida). */
+async function act(btn, fn, doneLabel) {
+  const html = btn.innerHTML, w = btn.offsetWidth;
+  btn.style.width = w + 'px'; btn.classList.add('is-busy'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+  try {
+    const r = await fn();
+    btn.classList.remove('is-busy'); btn.classList.add('is-done'); btn.style.width = '';
+    btn.innerHTML = `<svg class="tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>${doneLabel ? `<span>${esc(doneLabel)}</span>` : ''}`;
+    await sleep(reduced ? 200 : 700);
+    return r;
+  } catch (e) {
+    btn.classList.remove('is-busy'); btn.style.width = ''; btn.disabled = false; btn.innerHTML = html;
+    if (!reduced) btn.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }], { duration: 380 });
+    fail(e); throw e;
+  }
+}
+function countTo(el, to, dur = 1200) {
+  const from = +el.dataset.v || 0; el.dataset.v = to;
+  if (reduced) { el.textContent = fmtN(to); return; }
+  const t0 = performance.now();
+  (function f(t) { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 4); el.textContent = fmtN(from + (to - from) * e); if (k < 1) requestAnimationFrame(f); })(t0);
+}
+let toastT;
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast on' + (err ? ' err' : ''); clearTimeout(toastT); toastT = setTimeout(() => t.className = 'toast' + (err ? ' err' : ''), err ? 5200 : 2800); }
+function fail(e) {
+  const m = e && e.message || String(e); toast(m, true);
+  if (/Sesión expirada/.test(m)) { S.token = null; S.user = null; sess.del('token'); show(vEmail); }
+}
+function flagErr(field) { field.classList.remove('err'); void field.offsetWidth; field.classList.add('err'); }
+function segInit(seg) {
+  const th = document.createElement('span'); th.className = 'thumb'; seg.prepend(th);
+  const place = () => { const b = $('[aria-pressed="true"]', seg); if (b) { th.style.left = b.offsetLeft + 'px'; th.style.width = b.offsetWidth + 'px'; } };
+  seg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('button', seg).forEach(x => x.setAttribute('aria-pressed', x === b)); place(); seg.dispatchEvent(new CustomEvent('change')); });
+  requestAnimationFrame(place); setTimeout(place, 400);
+}
+function ringHTML(v) { return `<div class="ring"><svg viewBox="0 0 62 62"><circle class="bg" cx="31" cy="31" r="26"/><circle class="fg" cx="31" cy="31" r="26" data-v="${v}"/></svg><b>${v}</b></div>`; }
+function animateRings(root) { setTimeout(() => $$('.ring .fg', root).forEach(c => c.style.strokeDashoffset = 163.4 * (1 - (+c.dataset.v) / 100)), 300); }
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  const el = document.getElementById(b.dataset.copy); const txt = el.value !== undefined ? el.value : el.textContent;
+  try { await navigator.clipboard.writeText(txt); b.textContent = 'Copiado'; setTimeout(() => b.textContent = 'Copiar', 1400); }
+  catch (err) { if (el.select) el.select(); toast('Selecciona el texto y cópialo con Ctrl+C o ⌘C.'); }
+});
+
+/* ===================================================================
+   Barra superior, riel y menú
+   =================================================================== */
+const stage = () => S.project ? S.project.stage : 0;
+const unlocked = n => n <= Math.min(5, stage() + 1);
+function renderTop() {
+  const inApp = !!(S.user && S.cfg && S.cfg.ready && S.project && S.inPipeline);
+  $('#rail').hidden = !inApp; $('#topRight').hidden = !S.user;
+  if (S.user) { $('#avatar').textContent = (S.user.email || '?')[0].toUpperCase(); countTo($('#credits'), S.user.credits, 900); }
+  if (!inApp) return;
+  const st = stage();
+  $('#rail').innerHTML = `<span class="fill"></span>` + STEPS.map((t, i) => {
+    const n = i + 1, cls = n === S.step ? 'cur' : st >= n ? 'done' : unlocked(n) ? '' : 'locked';
+    return `<li class="node ${cls}"><button data-step="${n}" ${cls === 'locked' ? 'aria-disabled="true"' : ''} ${n === S.step ? 'aria-current="step"' : ''} title="${cls === 'locked' ? 'Completa «' + STEPS[st] + '» primero' : t}"><span class="dot">${ICON.check}</span><span class="lbl">${t}</span></button></li>`;
+  }).join('');
+  requestAnimationFrame(() => {
+    const nodes = $$('.node', $('#rail')); if (!nodes.length) return;
+    const c = n => n.offsetLeft + n.offsetWidth / 2, last = nodes[Math.min(4, Math.max(S.step, st) - 1)];
+    const f = $('#rail .fill'); f.style.left = c(nodes[0]) + 'px'; f.style.width = Math.max(0, c(last) - c(nodes[0])) + 'px';
+  });
+}
+$('#rail').addEventListener('click', e => {
+  const b = e.target.closest('[data-step]'); if (!b) return; const n = +b.dataset.step;
+  if (!unlocked(n)) { const li = b.parentElement; li.classList.remove('shake'); void li.offsetWidth; li.classList.add('shake'); toast(`Completa primero «${STEPS[stage()]}».`); return; }
+  if (n !== S.step) goStep(n);
+});
+function closeMenu() { const m = $('#menu'); if (!m.hidden) { m.hidden = true; $('#avatar').setAttribute('aria-expanded', 'false'); } }
+$('#avatar').onclick = e => {
+  e.stopPropagation(); const m = $('#menu');
+  if (!m.hidden) return closeMenu();
+  const admin = S.user && S.user.isAdmin;
+  m.innerHTML = `<div class="who">${esc(S.user.email)} · plan ${esc(S.user.plan)}</div>
+    ${S.cfg && S.cfg.ready ? '<button data-m="new">Nueva campaña</button>' : ''}
+    ${admin ? '<button data-m="creds">Credenciales</button><button data-m="biz">Negocio</button>' : ''}
+    <button data-m="out">Cerrar sesión</button>`;
+  m.hidden = false; $('#avatar').setAttribute('aria-expanded', 'true');
+  if (!reduced) m.animate([{ opacity: 0, transform: 'scale(.92) translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+};
+document.addEventListener('click', e => { if (!e.target.closest('#menu,#avatar')) closeMenu(); });
+$('#menu').addEventListener('click', async e => {
+  const k = e.target.dataset.m; if (!k) return; closeMenu();
+  if (k === 'out') { try { await call('auth.logout'); } catch (x) {} S.token = null; S.user = null; S.inPipeline = false; sess.del('token'); show(vEmail, { dir: -1 }); }
+  if (k === 'creds') { S.inPipeline = false; show(vCreds); }
+  if (k === 'biz') openBiz();
+  if (k === 'new') newCampaign();
+});
+async function newCampaign() {
+  try { const r = await call('project.new'); S.project = r.project; S.scan = null; sess.del('scan'); S.picked.clear(); S.jobs = {}; S.draft = {}; S.take = {}; toast('Nueva campaña lista.'); goStep(1, { dir: -1 }); } catch (x) { fail(x); }
+}
+
+/* ===================================================================
+   Acceso: servidor → instalación → correo → código
+   =================================================================== */
+function vConnect(el) {
+  el.innerHTML = `<div class="head"><span class="eyebrow">Conexión</span>${H('Conecta tu *servidor*.')}<p class="lede" data-r>Pega la URL del Web App de Apps Script, la que termina en <span class="mono">/exec</span>. Las credenciales de las APIs viven allí y nunca pasan por esta página.</p></div>
+  <form class="stack" style="max-width:620px" data-r><div class="field"><label for="c_url">URL del Web App</label><input class="input mono" id="c_url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(API_URL)}"></div>
+  <div class="row"><button class="btn primary" type="submit">Conectar <span class="arrow">→</span></button></div></form>`;
+  $('form', el).onsubmit = async ev => {
+    ev.preventDefault(); const url = $('#c_url').value.trim();
+    if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(url)) { flagErr($('.field', el)); return toast('La URL debe ser la de tu Web App y terminar en /exec.', true); }
+    const prev = API_URL; API_URL = url;
+    try { await act($('button', el), () => call('boot.status'), 'Conectado'); store.set('api_url', url); boot(); } catch (x) { API_URL = prev; }
+  };
+}
+function vClaim(el) {
+  el.innerHTML = `<div class="head"><span class="eyebrow">Instalación</span>${H('Instala *Pulso*.')}<p class="lede" data-r>Primera vez aquí. En el editor de Apps Script ejecuta <span class="mono">setup()</span> y copia el código de instalación que aparece en el registro. Quien lo use queda como propietario de la plataforma.</p></div>
+  <form class="stack" style="max-width:560px" data-r>
+    <div class="field"><label for="k_code">Código de instalación</label><input class="input mono" id="k_code" autocomplete="off" spellcheck="false" placeholder="10 caracteres" style="text-transform:uppercase;letter-spacing:.12em"></div>
+    <div class="field"><label for="k_email">Tu correo</label><input class="input" id="k_email" type="email" autocomplete="email" placeholder="tu@empresa.com"></div>
+    <div class="row"><button class="btn primary" type="submit">Crear cuenta de propietario <span class="arrow">→</span></button></div></form>`;
+  $('form', el).onsubmit = async ev => {
+    ev.preventDefault(); const email = $('#k_email').value.trim();
+    try { await act($('button', el), () => call('setup.claim', { code: $('#k_code').value, email }), 'Código enviado'); show(e2 => vOtp(e2, email)); } catch (x) {}
+  };
+}
+function vEmail(el) {
+  el.innerHTML = `<div class="head"><span class="eyebrow">Acceso</span>${H('Tendencias que se|vuelven *ventas*.')}<p class="lede" data-r>Escribe tu correo y te enviamos un código de acceso. Sin contraseñas.</p></div>
+  <form class="stack" style="max-width:520px;gap:22px" data-r><div class="field big"><input id="l_email" type="email" autocomplete="email" placeholder="tu@empresa.com" aria-label="Correo"></div>
+  <div class="row"><button class="btn primary" type="submit">Enviar código <span class="arrow">→</span></button></div></form>`;
+  setTimeout(() => { const i = $('#l_email'); i && i.focus({ preventScroll: true }); }, 600);
+  $('form', el).onsubmit = async ev => {
+    ev.preventDefault(); const email = $('#l_email').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return flagErr($('.field', el));
+    try { await act($('button', el), () => call('auth.request', { email }), 'Código enviado'); show(e2 => vOtp(e2, email)); } catch (x) {}
+  };
+}
+function vOtp(el, email) {
+  el.innerHTML = `<button class="back" data-r>← Cambiar correo</button><div class="head"><span class="eyebrow">Verificación</span>${H('Revisa tu *correo*.')}<p class="lede" data-r>Enviamos un código de 6 dígitos a <b>${esc(email)}</b>. Vence en 10 minutos.</p></div>
+  <div class="stack" style="gap:22px" data-r><div class="otp">${[0, 1, 2, 3, 4, 5].map(i => `<input inputmode="numeric" maxlength="1" aria-label="Dígito ${i + 1}" ${i === 0 ? 'autocomplete="one-time-code"' : ''}>`).join('')}</div>
+  <div class="row"><button class="btn primary" id="otpGo" disabled>Entrar <span class="arrow">→</span></button><button class="btn ghost" id="resend" disabled>Reenviar en 60 s</button></div></div>`;
+  $('.back', el).onclick = () => show(vEmail, { dir: -1 });
+  const ins = $$('.otp input', el), go = $('#otpGo');
+  const code = () => ins.map(i => i.value).join('');
+  let sending = false;
+  const submit = async () => {
+    if (code().length < 6 || sending) return; sending = true;
+    try { const r = await act(go, () => call('auth.verify', { email, code: code() }), 'Bienvenido'); S.token = r.token; sess.set('token', r.token); await loadAndRoute(); }
+    catch (x) { ins.forEach(i => { i.value = ''; i.classList.remove('filled'); }); if (!reduced) $('.otp', el).animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'none' }], { duration: 400 }); ins[0].focus(); go.disabled = true; }
+    finally { sending = false; }
+  };
+  ins.forEach((inp, i) => {
+    inp.addEventListener('input', () => {
+      inp.value = inp.value.replace(/\D/g, '').slice(-1); inp.classList.toggle('filled', !!inp.value);
+      if (inp.value && ins[i + 1]) ins[i + 1].focus();
+      go.disabled = code().length < 6; if (code().length === 6) submit();
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Backspace' && !inp.value && ins[i - 1]) { ins[i - 1].focus(); ins[i - 1].value = ''; ins[i - 1].classList.remove('filled'); } });
+    inp.addEventListener('paste', e => { const d = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6); if (!d) return; e.preventDefault(); d.split('').forEach((c, k) => { ins[k].value = c; ins[k].classList.add('filled'); }); go.disabled = d.length < 6; if (d.length === 6) submit(); });
+  });
+  go.onclick = submit;
+  setTimeout(() => ins[0].focus({ preventScroll: true }), 600);
+  let left = 60; const rs = $('#resend'), t = setInterval(() => { if (!rs.isConnected) return clearInterval(t); left--; if (left <= 0) { clearInterval(t); rs.disabled = false; rs.textContent = 'Reenviar código'; } else rs.textContent = `Reenviar en ${left} s`; }, 1000);
+  rs.onclick = async () => { try { await call('auth.request', { email }); toast('Código reenviado.'); rs.disabled = true; } catch (x) { fail(x); } };
+}
+
+/* ===================================================================
+   Credenciales: el estudio no se abre hasta verificar las obligatorias
+   =================================================================== */
+async function loadAndRoute() {
+  const [me, cf, pr] = await Promise.all([call('me'), call('config.status'), call('project.current')]);
+  S.user = me.user; S.cfg = cf; S.project = pr.project;
+  S.srcOn = new Set(Object.keys(cf.sources).filter(k => cf.sources[k]));
+  const sc = sess.get('scan'); if (sc && sc.project === S.project.id) S.scan = sc;
+  const q = store.get('q'); if (q) S.q = q;
+  if (!cf.ready) { S.inPipeline = false; return show(S.user.isAdmin ? vCreds : vWaiting); }
+  return goStep(Math.min(5, stage() + 1));
+}
+function vCreds(el) {
+  el.innerHTML = `<div class="head"><span class="eyebrow">Credenciales</span>${H('Conecta tus *motores*.')}<p class="lede" data-r>Cada clave se verifica en vivo con su proveedor y queda guardada en el servidor de Apps Script. Esta página no vuelve a mostrarla: solo verás sus últimos 4 caracteres.</p></div>
+  <div class="stack" data-r><div class="between"><span class="lbl" id="credProg">Revisando…</span><button class="btn primary" id="enterStudio" disabled>Entrar al estudio <span class="arrow">→</span></button></div><div class="progress-line"><i id="credBar" style="width:0"></i></div></div>
+  <div class="stack" id="credList" data-r><div class="skel" style="height:150px"></div><div class="skel" style="height:150px"></div></div>`;
+  $('#enterStudio').onclick = async e => {
+    try { const cf = await act(e.currentTarget, () => call('config.status'), 'Listo'); S.cfg = cf; S.srcOn = new Set(Object.keys(cf.sources).filter(k => cf.sources[k])); goStep(Math.min(5, stage() + 1)); } catch (x) {}
+  };
+  $('#credList').addEventListener('click', onCredClick);
+  call('creds.status').then(r => { S.creds = r; renderCreds(true); }).catch(fail);
+}
+function renderCreds(first) {
+  const list = $('#credList'); if (!list) return;
+  const ps = S.creds.providers, req = ps.filter(p => p.required), done = req.filter(p => p.connected).length;
+  $('#credProg').textContent = `${done} de ${req.length} obligatorias conectadas · ${ps.filter(p => !p.required && p.connected).length} de ${ps.filter(p => !p.required).length} opcionales`;
+  $('#credBar').style.width = (done / req.length * 100) + '%';
+  const eb = $('#enterStudio'), wasLocked = eb.disabled; eb.disabled = !S.creds.ready;
+  if (wasLocked && S.creds.ready && !first && !reduced) eb.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 650, easing: 'cubic-bezier(.34,1.56,.64,1)', iterations: 2 });
+  list.innerHTML = ps.map(p => `<article class="cred ${p.connected ? 'connected' : ''}" data-p="${p.id}">
+    <div class="between"><div class="row"><b style="font-size:1.08rem">${esc(p.label)}</b>${p.required ? '<span class="badge req">Obligatoria</span>' : '<span class="badge off">Opcional</span>'}${p.connected ? `<span class="badge ok">Conectada · ••••${esc(p.last4)}</span>` : ''}</div>
+      ${p.connected ? `<div class="row"><button class="btn sm ghost" data-edit>Reemplazar</button><button class="btn sm ghost" data-rm>Desconectar</button></div>` : ''}</div>
+    <p class="muted" style="font-size:.92rem">${esc(p.use)}</p>
+    <div class="cred-body"><div>
+      ${p.fields.map(f => `<div class="field"><label for="f_${f.key}">${esc(f.label)}</label><div class="secret"><input class="input" id="f_${f.key}" data-k="${f.key}" type="password" autocomplete="off" spellcheck="false" placeholder="${esc(f.placeholder)}"><button type="button" data-eye>Mostrar</button></div></div>`).join('')}
+      <p class="hint">${esc(p.help)}</p>
+      <div class="row"><button class="btn primary" data-save>Verificar y conectar</button></div>
+    </div></div></article>`).join('');
+  $$('input[data-k]', list).forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('[data-save]', i.closest('.cred')).click(); } }));
+  const next = $('.cred:not(.connected)', list);
+  if (next && (!S.creds.ready || !first)) {
+    next.classList.add('focus');
+    if (!first) next.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    setTimeout(() => { const i = $('input', next); i && i.focus({ preventScroll: true }); }, 700);
+  }
+}
+async function onCredClick(e) {
+  const card = e.target.closest('.cred'); if (!card) return; const id = card.dataset.p;
+  const eye = e.target.closest('[data-eye]'); if (eye) { const i = eye.previousElementSibling; i.type = i.type === 'password' ? 'text' : 'password'; eye.textContent = i.type === 'password' ? 'Mostrar' : 'Ocultar'; return; }
+  if (e.target.closest('[data-edit]')) { card.classList.toggle('edit'); if (card.classList.contains('edit')) setTimeout(() => $('input', card).focus(), 400); return; }
+  const rm = e.target.closest('[data-rm]');
+  if (rm) {
+    if (rm.dataset.sure !== '1') { rm.dataset.sure = '1'; rm.textContent = '¿Desconectar?'; rm.classList.add('warn'); setTimeout(() => { if (rm.isConnected) { rm.dataset.sure = ''; rm.textContent = 'Desconectar'; rm.classList.remove('warn'); } }, 3500); return; }
+    try { S.creds = await act(rm, () => call('creds.remove', { provider: id })); renderCreds(); toast('Credencial desconectada.'); } catch (x) {} return;
+  }
+  const sv = e.target.closest('[data-save]'); if (!sv) return;
+  const values = {}; let missing = null;
+  $$('[data-k]', card).forEach(i => { values[i.dataset.k] = i.value.trim(); if (!values[i.dataset.k] && !missing) missing = i.closest('.field'); });
+  if (missing) return flagErr(missing);
+  try {
+    S.creds = await act(sv, () => call('creds.save', { provider: id, values }), 'Verificada');
+    $$('[data-k]', card).forEach(i => i.value = '');
+    renderCreds(); toast(`${S.creds.providers.find(p => p.id === id).label} conectada.`);
+  } catch (x) {}
+}
+function vWaiting(el) {
+  el.innerHTML = `<div class="head"><span class="eyebrow">Casi listo</span>${H('Tu estudio se está|*preparando*.')}<p class="lede" data-r>El administrador de la plataforma debe conectar las credenciales de OpenAI y Google Gemini. En cuanto lo haga podrás empezar.</p></div>
+  <div class="row" data-r><button class="btn primary" id="recheck">Revisar de nuevo</button></div>`;
+  $('#recheck').onclick = async e => { try { const cf = await act(e.currentTarget, () => call('config.status')); S.cfg = cf; if (cf.ready) loadAndRoute(); else { toast('Todavía faltan credenciales.'); show(vWaiting); } } catch (x) {} };
+}
+
+/* ===================================================================
+   Navegación del estudio
+   =================================================================== */
+function goStep(n, opts = {}) {
+  if (!unlocked(n)) { toast(`Completa primero «${STEPS[stage()]}».`); return Promise.resolve(); }
+  const dir = opts.dir || (n >= S.step ? 1 : -1);
+  S.step = n; S.inPipeline = true;
+  const views = {
+    1: () => S.scan && S.scan.trends ? v1Results : v1Market,
+    2: () => (stage() >= 2 && S.project.brief && opts.page === undefined) ? v2Summary : (el => v2Page(el, opts.page || 0)),
+    3: () => v3Script, 4: () => v4Production, 5: () => stage() >= 5 ? v5Done : v5Publish
+  };
+  return show(views[n](), { dir, flipFrom: opts.flipFrom });
+}
+
+/* ---------- Paso 1 · Tendencias ---------- */
+function v1Market(el) {
+  el.innerHTML = `<div class="head"><span class="eyebrow">Paso 1 · Tendencias</span>${H('¿En qué *mercado*|vendes?')}<p class="lede" data-r>Las búsquedas, los videos y las conversaciones se leen desde ese país.</p></div>
+  <div class="choices" data-r>${Object.entries(GEO).map(([k, v]) => `<button class="choice ${S.q.geo === k ? 'on' : ''}" data-geo="${k}">${v}<span class="mono">${k}</span></button>`).join('')}</div>`;
+  $('.choices', el).onclick = async e => {
+    const b = e.target.closest('[data-geo]'); if (!b) return;
+    $$('.choice', el).forEach(c => c.classList.toggle('on', c === b)); S.q.geo = b.dataset.geo; store.set('q', S.q);
+    if (!reduced) b.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1.02)' }], { duration: 420, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+    await sleep(380); show(v1Topic);
+  };
+}
+function v1Topic(el) {
+  el.innerHTML = `<button class="back" data-r>← ${esc(GEO[S.q.geo] || 'Mercado')}</button><div class="head"><span class="eyebrow">Paso 1 · Tendencias</span>${H('¿Qué *vendes*?')}<p class="lede" data-r>Tu industria y las palabras con las que te buscan tus clientes.</p></div>
+  <form class="stack" style="max-width:720px;gap:30px" data-r>
+    <div class="field"><label for="t_niche">Industria</label><div class="big"><input id="t_niche" placeholder="Estética médica, inmobiliaria, cafetería…" value="${esc(S.q.niche)}"></div></div>
+    <div class="field"><label for="t_kw">Palabras clave</label><div class="chips-in" id="kwBox"><input id="t_kw" placeholder="Escribe una y pulsa Enter"></div><span class="hint">Hasta 8. Se usan para buscar en YouTube y TikTok.</span></div>
+    <div class="row"><button class="btn primary" type="submit">Continuar <span class="arrow">→</span></button></div></form>`;
+  $('.back', el).onclick = () => show(v1Market, { dir: -1 });
+  const box = $('#kwBox'), kin = $('#t_kw');
+  const drawTags = () => { $$('.tag', box).forEach(t => t.remove()); S.q.keywords.forEach((k, i) => { const t = document.createElement('span'); t.className = 'tag'; t.innerHTML = `${esc(k)}<button type="button" aria-label="Quitar ${esc(k)}" data-i="${i}">×</button>`; box.insertBefore(t, kin); }); };
+  const addKw = () => { const v = kin.value.trim().replace(/,$/, ''); if (v && S.q.keywords.length < 8 && !S.q.keywords.includes(v)) S.q.keywords.push(v); kin.value = ''; drawTags(); };
+  drawTags();
+  kin.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ',') && kin.value.trim()) { e.preventDefault(); addKw(); }
+    else if (e.key === 'Backspace' && !kin.value && S.q.keywords.length) { S.q.keywords.pop(); drawTags(); }
+  });
+  box.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) { S.q.keywords.splice(+b.dataset.i, 1); drawTags(); } else kin.focus(); });
+  $('#t_niche').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); kin.focus(); } });
+  setTimeout(() => $('#t_niche').focus({ preventScroll: true }), 650);
+  $('form', el).onsubmit = e => {
+    e.preventDefault(); if (kin.value.trim()) addKw();
+    S.q.niche = $('#t_niche').value.trim();
+    if (!S.q.niche && !S.q.keywords.length) return flagErr($('.field', el));
+    store.set('q', S.q); show(v1Sources);
+  };
+}
+function v1Sources(el) {
+  const admin = S.user.isAdmin;
+  el.innerHTML = `<button class="back" data-r>← ${esc(S.q.niche || S.q.keywords.join(', '))}</button><div class="head"><span class="eyebrow">Paso 1 · Tendencias</span>${H('Elige tus *fuentes*.')}<p class="lede" data-r>Cuantas más fuentes coinciden en una tendencia, más alta es su velocidad.</p></div>
+  <div class="stack" data-r>${Object.entries(SRC).map(([k, m]) => { const ok = S.cfg.sources[k]; return `<div class="src ${ok ? '' : 'off'}"><div><b>${m.n}</b><p>${esc(m.d)}</p>${ok ? '' : `<p style="margin-top:8px">${admin ? `<button class="btn sm" data-goc>Conectar credencial</button>` : '<span class="badge off">Sin credencial</span>'}</p>`}</div><button class="switch" role="switch" data-src="${k}" aria-checked="${ok && S.srcOn.has(k)}" aria-label="${m.n}" ${ok ? '' : 'disabled'}></button></div>`; }).join('')}</div>
+  <div class="row" data-r><button class="btn accent" id="scanGo">Buscar tendencias <span class="arrow">→</span></button><span class="cost">${S.cfg.costs.scan} créditos por búsqueda</span></div>`;
+  $('.back', el).onclick = () => show(v1Topic, { dir: -1 });
+  el.addEventListener('click', e => {
+    const sw = e.target.closest('[data-src]'); if (sw && !sw.disabled) { const k = sw.dataset.src, on = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', on); on ? S.srcOn.add(k) : S.srcOn.delete(k); }
+    if (e.target.closest('[data-goc]')) { S.inPipeline = false; show(vCreds); }
+  });
+  $('#scanGo').onclick = () => { const srcs = [...S.srcOn].filter(s => S.cfg.sources[s]); if (!srcs.length) return toast('Activa al menos una fuente.', true); show(el2 => v1Scan(el2, srcs)); };
+}
+async function v1Scan(el, srcs) {
+  el.innerHTML = `<div class="head"><span class="eyebrow">Paso 1 · Tendencias</span>${H('Escuchando|las *redes*.')}</div>
+  <div class="scan"><div data-r><div class="counter num"><span id="sigN">0</span><small id="scanMsg">señales reunidas en ${esc(GEO[S.q.geo] || '')}</small></div></div>
+  <div class="card" data-r>${srcs.map(k => `<div class="srow" data-row="${k}"><b>${SRC[k].n}</b><span class="n num">—</span><span class="st">En cola</span><span class="track"><i></i></span></div>`).join('')}</div></div>`;
+  S.scan = { id: null, signals: [], trends: null, project: S.project.id };
+  const setRow = (k, cls, st, n) => { const r = $(`[data-row="${k}"]`, el); if (!r) return; r.className = 'srow ' + cls; $('.st', r).textContent = st; if (n != null) countTo($('.n', r), n, 900); };
+  try {
+    const b = await call('scan.begin', { geo: S.q.geo, niche: S.q.niche, keywords: S.q.keywords }); S.scan.id = b.scanId; S.user.credits = b.credits; renderTop();
+    await Promise.all(srcs.map(async k => {
+      setRow(k, 'run', 'Consultando…');
+      try {
+        let r = await call('scan.source', { scanId: S.scan.id, source: k });
+        if (r.pending) { setRow(k, 'run', 'Investigando en segundo plano…'); r = await poll('scan.poll', { scanId: S.scan.id, source: k, job: r.pending }, null, k === 'tiktok_apify' ? 6000 : 4000, 120); }
+        S.scan.signals.push(...r.signals); countTo($('#sigN'), S.scan.signals.length, 900);
+        const top = [...r.signals].sort((a, b) => b.strength - a.strength)[0];
+        setRow(k, 'ok', top ? `Más fuerte: ${top.title}` : 'Sin resultados', r.signals.length);
+      } catch (e) { setRow(k, 'err', e.message, 0); }
+    }));
+    if (S.scan.signals.length < 3) throw new Error('Encontramos muy pocas señales. Prueba otras palabras clave o activa más fuentes.');
+    const msg = $('#scanMsg'); msg.textContent = 'señales · agrupándolas en tendencias…';
+    if (!reduced) msg.animate([{ opacity: .35 }, { opacity: 1 }], { duration: 900, iterations: Infinity, direction: 'alternate' });
+    const st = await call('scan.synthesize', { scanId: S.scan.id, signals: S.scan.signals.map(({ id, source, title, metric, context, url, strength }) => ({ id, source, title, metric, context, url, strength })) });
+    const r = await poll('scan.synthPoll', { scanId: S.scan.id, jobId: st.jobId }, null, 3000);
+    S.scan.trends = r.trends; delete S.scan.signals; sess.set('scan', S.scan);
+    await sleep(400); show(v1Results);
+  } catch (e) {
+    fail(e);
+    el.insertAdjacentHTML('beforeend', `<div class="row"><button class="btn primary" id="retry">Ajustar búsqueda</button></div>`);
+    $('#retry').onclick = () => show(v1Sources, { dir: -1 });
+  }
+}
+function trendCard(t) {
+  const src = Object.entries(t.sources || {}), sel = S.project.trend && S.project.trend.id === t.id;
+  return `<article class="trend ${sel ? 'sel' : ''}" data-r data-t="${esc(t.id)}">
+    <div class="t-top">${ringHTML(t.velocity)}<div style="min-width:0"><span class="stage-t ${esc(t.stage)}">${esc(t.stage)}</span><h3>${esc(t.name)}</h3><span class="muted" style="font-size:.84rem">${esc(t.format)}</span></div></div>
+    <div class="chips">${(t.platforms || []).map(p => `<span class="chip">${esc(p)}</span>`).join('')}${src.map(([k, n]) => `<span class="chip src-c">${esc(SRC[k] ? SRC[k].n : k)} · ${n}</span>`).join('')}</div>
+    <p class="why">${esc(t.why)}</p><p class="angle">${esc(t.angle)}</p>
+    <details class="ev"><summary>Ver evidencia (${(t.evidence || []).length})</summary><ul>${(t.evidence || []).map(e => `<li><span class="s">${e.strength}</span><div>${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}<div class="faint" style="font-size:.78rem">${esc(SRC[e.source] ? SRC[e.source].n : e.source)} · ${esc(e.metric)}</div></div></li>`).join('')}</ul></details>
+    <button class="btn ${sel ? '' : 'primary'}" data-pick>${sel ? 'Elegida · continuar' : 'Elegir tendencia'} <span class="arrow">→</span></button></article>`;
+}
+function v1Results(el) {
+  const list = S.scan.trends || [];
+  el.innerHTML = `<div class="between"><div class="head"><span class="eyebrow">Paso 1 · Tendencias</span>${H(`${list.length} tendencias,|*con evidencia*.`, 'sm')}</div><button class="btn ghost" id="rescan" data-r>Nueva búsqueda</button></div>
+  <div class="trends">${list.map(trendCard).join('')}</div>`;
+  animateRings(el);
+  $('#rescan').onclick = () => { S.scan = null; sess.del('scan'); show(v1Market, { dir: -1 }); };
+  el.addEventListener('click', async e => {
+    const b = e.target.closest('[data-pick]'); if (!b) return; const card = b.closest('.trend'), id = card.dataset.t;
+    if (S.project.trend && S.project.trend.id === id) { card.style.transform = ''; return goStep(2, { flipFrom: card }); }
+    if (stage() >= 3 && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.classList.add('warn'); b.innerHTML = 'Cambiarla reinicia el guion · confirmar'; return; }
+    try {
+      const r = await act(b, () => call('trend.select', { scanId: S.scan.id, trendId: id }), 'Elegida');
+      S.project = r.project; S.draft = {}; card.classList.add('sel'); card.style.transform = '';
+      goStep(2, { flipFrom: card, page: S.project.brief ? undefined : 0 });
+    } catch (x) {}
+  });
+}
+
+/* ---------- Paso 2 · Brief ---------- */
+const BRIEF_PAGES = [
+  { t: '¿Cómo se llama|tu *marca*?', s: 'Marca', f: [['name', 'Marca', 'Ej. Clínica Aurora'], ['product', 'Producto o servicio', 'Ej. Rejuvenecimiento facial con láser']] },
+  { t: '¿Qué *oferta*|vas a lanzar?', s: 'Oferta', f: [['offer', 'Oferta', 'Ej. Valoración gratis y 20% en la primera sesión', 'ta']] },
+  { t: '¿A *quién*|le vendes?', s: 'Cliente', f: [['audience', 'Cliente ideal', 'Ej. Mujeres de 30 a 50 años que quieren verse descansadas sin cirugía', 'ta'], ['pain', 'Su dolor principal', 'Ej. Manchas que el maquillaje ya no tapa']] },
+  { t: '¿Qué *resultado*|prometes?', s: 'Resultado', f: [['benefit', 'Resultado', 'Ej. Piel más uniforme desde la primera sesión'], ['proof', 'Prueba social (opcional)', 'Ej. Más de 1.200 pacientes atendidas', '', 1]] },
+  { t: '¿Cómo *cerramos*|la venta?', s: 'Cierre', custom: true }
+];
+const COLORS = ['#2B45F0', '#0C0E13', '#E0442C', '#11845A', '#C2185B', '#E9A23B', '#7B3FE4', '#0E7C86'];
+function briefDraft() { return S.draft.brief || (S.draft.brief = Object.assign({ objective: 'convertir', tone: 'Cercano y experto', duration: '30', slides: '7', color: '#2B45F0' }, S.project.brief || {})); }
+function pinnedTrend() { const t = S.project.trend; return t ? `<div class="pinned" data-flip>${ringHTML(t.velocity)}<span>${esc(t.name)}</span></div>` : ''; }
+function isPageDone(k) { const d = briefDraft(), p = BRIEF_PAGES[k]; return p.custom ? !!d.keyword : p.f.every(([f, , , , opt]) => opt || d[f]); }
+function v2Page(el, i) {
+  const p = BRIEF_PAGES[i], d = briefDraft(), last = i === BRIEF_PAGES.length - 1, resets = stage() >= 3;
+  const fields = p.custom ? `
+    <div class="field"><label for="b_keyword">Palabra que comentan para recibir la oferta</label><div class="big"><input id="b_keyword" data-k="keyword" placeholder="Ej. AURORA" value="${esc(d.keyword || '')}" style="text-transform:uppercase"></div></div>
+    <div class="field"><span class="lbl">Objetivo de la pieza</span><div class="seg" id="b_obj">${Object.entries(OBJ).map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${d.objective === v}">${l}</button>`).join('')}</div></div>
+    <div class="grid3"><div class="field"><label for="b_tone">Tono</label><select class="input" id="b_tone" data-k="tone">${['Cercano y experto', 'Directo y urgente', 'Premium y sobrio', 'Divertido'].map(o => `<option ${d.tone === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+      <div class="field"><label for="b_duration">Duración del video</label><select class="input" id="b_duration" data-k="duration">${['15', '30', '45', '60'].map(o => `<option value="${o}" ${String(d.duration) === o ? 'selected' : ''}>${o} segundos</option>`).join('')}</select></div>
+      <div class="field"><label for="b_slides">Láminas del carrusel</label><select class="input" id="b_slides" data-k="slides">${['5', '7', '10'].map(o => `<option ${String(d.slides) === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div></div>
+    <div class="field"><span class="lbl">Color de marca</span><div class="swatches" id="b_color">${COLORS.map(c => `<button type="button" class="sw" style="background:${c}" data-c="${c}" aria-label="Color ${c}" aria-pressed="${String(d.color).toLowerCase() === c.toLowerCase()}"></button>`).join('')}</div></div>`
+    : p.f.map(([k, l, ph, ta, opt]) => `<div class="field"><label for="b_${k}">${l}</label><div class="big">${ta ? `<textarea id="b_${k}" data-k="${k}" rows="2" placeholder="${esc(ph)}">${esc(d[k] || '')}</textarea>` : `<input id="b_${k}" data-k="${k}" placeholder="${esc(ph)}" value="${esc(d[k] || '')}" ${opt ? 'data-opt' : ''}>`}</div></div>`).join('');
+  el.innerHTML = `<div class="brief"><div class="stack" style="gap:30px">
+    ${i ? '<button class="back" data-r>← Anterior</button>' : `<div>${pinnedTrend()}</div>`}
+    <div class="head"><span class="eyebrow">Paso 2 · Brief · ${i + 1} de ${BRIEF_PAGES.length}</span>${H(p.t)}</div>
+    <form class="stack" style="gap:30px;max-width:720px" data-r novalidate>${fields}
+      <div class="row"><button class="btn ${last ? 'accent' : 'primary'}" type="submit">${last ? `${resets ? 'Guardar y reescribir guion' : 'Escribir guion'} · ${S.cfg.costs.script} créditos` : 'Continuar'} <span class="arrow">→</span></button><span class="hint">o pulsa Enter</span></div></form></div>
+    <nav class="steps-mini" aria-label="Secciones del brief">${BRIEF_PAGES.map((q, k) => `<button data-pg="${k}" class="${k === i ? 'cur' : isPageDone(k) ? 'done' : ''}"><i></i>${q.s}</button>`).join('')}</nav></div>`;
+  const collect = () => $$('[data-k]', el).forEach(x => d[x.dataset.k] = x.value.trim());
+  if (p.custom) {
+    const seg = $('#b_obj'); segInit(seg); seg.addEventListener('change', () => d.objective = $('[aria-pressed="true"]', seg).dataset.v);
+    $('#b_color').onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; $$('.sw', el).forEach(x => x.setAttribute('aria-pressed', x === b)); d.color = b.dataset.c; };
+  }
+  const back = $('.back', el); if (back) back.onclick = () => { collect(); show(e2 => v2Page(e2, i - 1), { dir: -1 }); };
+  $$('[data-pg]', el).forEach(b => b.onclick = () => { collect(); const k = +b.dataset.pg; if (k !== i) show(e2 => v2Page(e2, k), { dir: k > i ? 1 : -1 }); });
+  $$('textarea', el).forEach(t => t.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('form', el).requestSubmit(); } }));
+  setTimeout(() => { const f = $('[data-k]', el); f && f.focus({ preventScroll: true }); }, 650);
+  $('form', el).onsubmit = async e => {
+    e.preventDefault(); collect();
+    const missing = $$('[data-k]', el).filter(x => !x.value.trim() && !x.hasAttribute('data-opt') && x.tagName !== 'SELECT');
+    if (missing.length) return missing.forEach(x => flagErr(x.closest('.field')));
+    if (!last) return show(e2 => v2Page(e2, i + 1));
+    const first = BRIEF_PAGES.findIndex((q, k) => !isPageDone(k));
+    if (first >= 0) { toast(`Falta completar «${BRIEF_PAGES[first].s}».`, true); return show(e2 => v2Page(e2, first), { dir: -1 }); }
+    const btn = $('button[type=submit]', el);
+    try {
+      const r = await act(btn, () => call('brief.save', { brief: d }), 'Brief listo');
+      S.project = r.project; S.draft = {}; S.autoScript = !S.project.script; goStep(3);
+    } catch (x) {}
+  };
+}
+function v2Summary(el) {
+  const b = S.project.brief;
+  const items = [['Marca', `${b.name} · ${b.product}`, 0], ['Oferta', b.offer, 1], ['Cliente', `${b.audience}. Dolor: ${b.pain}`, 2], ['Resultado', `${b.benefit}${b.proof ? ' · ' + b.proof : ''}`, 3], ['Cierre', `Palabra «${b.keyword}» · ${OBJ[b.objective]} · ${b.duration} s · ${b.slides} láminas`, 4]];
+  el.innerHTML = `<div>${pinnedTrend()}</div><div class="head"><span class="eyebrow">Paso 2 · Brief</span>${H('Tu brief,|*confirmado*.')}<p class="lede" data-r>Toca cualquier bloque para editarlo. Si cambias algo, el guion se vuelve a escribir.</p></div>
+  <div class="sum-grid">${items.map(([l, v, p]) => `<button class="sum" data-r data-pg="${p}"><span class="lbl">${l}</span>${esc(v)}<span class="edit">Editar</span></button>`).join('')}</div>
+  <div class="row" data-r><button class="btn primary" id="toScript">${S.project.script ? 'Ver el guion' : 'Escribir guion'} <span class="arrow">→</span></button></div>`;
+  $$('[data-pg]', el).forEach(x => x.onclick = () => { S.draft = {}; show(e2 => v2Page(e2, +x.dataset.pg)); });
+  $('#toScript').onclick = () => { if (!S.project.script) S.autoScript = true; goStep(3); };
+}
+
+/* ---------- Paso 3 · Guion ---------- */
+function ctxChips() { const p = S.project; return `<div class="ctx" data-r><span class="chip">${esc(p.trend.name)}</span><span class="chip">${esc(p.brief.name)}</span><span class="chip">${esc(OBJ[p.brief.objective])} · ${esc(p.brief.duration)} s</span></div>`; }
+function v3Script(el) {
+  const s = S.project.script;
+  if (S.autoScript) { S.autoScript = false; genScript(); }
+  if (S.genScript) return v3Writing(el);
+  if (!s) {
+    el.innerHTML = `${ctxChips()}<div class="head"><span class="eyebrow">Paso 3 · Guion</span>${H('Todo listo para|*escribir*.')}<p class="lede" data-r>Hooks para test A/B, escaleta por segundos, copies por red con la respuesta al DM, y los prompts que alimentan la producción.</p></div>
+    <div class="row" data-r><button class="btn accent" id="gen">Escribir guion <span class="arrow">→</span></button><span class="cost">${S.cfg.costs.script} créditos · ${esc(S.cfg.models.text)}</span></div>`;
+    $('#gen').onclick = () => { genScript(); show(v3Writing); };
+    return;
+  }
+  const total = s.beats.reduce((a, b) => a + Math.max(1, b.end - b.start), 0), approved = stage() >= 3;
+  if (S.beat >= s.beats.length) S.beat = 0;
+  el.innerHTML = `${ctxChips()}<div class="head"><span class="eyebrow">Paso 3 · Guion</span>${H('Tu guion está|*listo*.', 'sm')}</div>
+  <section class="stack"><span class="lbl" data-r>Hooks para test A/B</span><div class="hooks">${s.hooks.slice(0, 3).map((h, i) => `<div class="hook" data-r><span>${'ABC'[i]}</span>${esc(h)}</div>`).join('')}</div></section>
+  <section class="stack" data-r><span class="lbl">Escaleta · ${esc(s.video.duration_seconds || S.project.brief.duration)} segundos</span>
+    <div class="timeline">${s.beats.map((b, i) => `<button class="seg-b" data-beat="${i}" aria-pressed="${i === S.beat}" style="flex:${Math.max(1, b.end - b.start) / total * 100} 1 0"><small>${b.start}–${b.end}s</small><b>${esc(b.label)}</b></button>`).join('')}</div>
+    <div id="beatBox"></div></section>
+  <section class="stack" data-r><div class="tabs" role="tablist"><span class="ind"></span>${[['copies', 'Copies'], ['video', 'Prompts de video'], ['carousel', 'Prompts de carrusel']].map(([k, l]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div><div id="tabBox"></div></section>
+  <div class="between" data-r><button class="btn ghost" id="regen">Otra versión · ${S.cfg.costs.script} créditos</button><button class="btn ${approved ? 'primary' : 'accent'}" id="approve">${approved ? 'Ir a producción' : 'Aprobar y producir'} <span class="arrow">→</span></button></div>`;
+  const drawBeat = () => {
+    const b = s.beats[S.beat], box = $('#beatBox');
+    box.innerHTML = `<div class="beat"><div><span class="lbl">En pantalla</span><div class="big-t">${esc(b.text)}</div></div><div><span class="lbl">Voz</span>${esc(b.vo)}</div><div><span class="lbl">Visual</span>${esc(b.visual)}</div></div>`;
+    if (!reduced) box.firstElementChild.animate([{ opacity: 0, transform: 'translateY(10px)', filter: 'blur(4px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 500, easing: 'cubic-bezier(.16,1,.3,1)' });
+  };
+  drawBeat();
+  $('.timeline', el).onclick = e => { const b = e.target.closest('[data-beat]'); if (!b) return; S.beat = +b.dataset.beat; $$('.seg-b', el).forEach(x => x.setAttribute('aria-pressed', x === b)); drawBeat(); };
+  const tabs = $('.tabs', el), ind = $('.ind', tabs);
+  const placeInd = () => { const t = $('[aria-selected="true"]', tabs); if (t) { ind.style.left = t.offsetLeft + 'px'; ind.style.width = t.offsetWidth + 'px'; } };
+  const drawTab = () => {
+    const box = $('#tabBox');
+    if (S.tab === 'copies') {
+      const names = { instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn', dm_autoreply: 'Respuesta al DM', whatsapp: 'Cierre por WhatsApp' };
+      box.innerHTML = `<div class="copies">${Object.keys(names).map(k => `<div class="copy"><div class="between"><b>${names[k]}</b><button class="btn sm" data-copy="cp_${k}">Copiar</button></div><pre id="cp_${k}">${esc(s.copies[k])}</pre></div>`).join('')}</div><p class="muted">${esc((s.hashtags || []).join(' '))}</p>`;
+    } else {
+      box.innerHTML = `<textarea class="json" id="jsonArea" spellcheck="false" aria-label="Prompts">${esc(JSON.stringify(s[S.tab], null, 2))}</textarea><div class="between"><p class="err-msg" id="jsonErr" hidden></p><div class="row" style="margin-left:auto"><button class="btn sm" data-copy="jsonArea">Copiar</button><button class="btn sm primary" id="saveJson" disabled>Guardar cambios</button></div></div>`;
+      const a = $('#jsonArea'), sv = $('#saveJson');
+      a.oninput = () => { try { JSON.parse(a.value); a.classList.remove('bad'); $('#jsonErr').hidden = true; sv.disabled = false; } catch (err) { a.classList.add('bad'); $('#jsonErr').hidden = false; $('#jsonErr').textContent = 'JSON inválido: ' + err.message; sv.disabled = true; } };
+      sv.onclick = async () => {
+        if (approved && sv.dataset.sure !== '1') { sv.dataset.sure = '1'; sv.classList.add('warn'); sv.textContent = 'Reinicia la producción · confirmar'; return; }
+        try { const r = await act(sv, () => call('script.save', { script: Object.assign({}, s, { [S.tab]: JSON.parse(a.value) }) }), 'Guardado'); S.project = r.project; renderTop(); show(v3Script); } catch (x) {}
+      };
+    }
+    if (!reduced) box.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'cubic-bezier(.16,1,.3,1)' });
+  };
+  tabs.onclick = e => { const t = e.target.closest('[data-tab]'); if (!t) return; S.tab = t.dataset.tab; $$('.tab', tabs).forEach(x => x.setAttribute('aria-selected', x === t)); placeInd(); drawTab(); };
+  requestAnimationFrame(placeInd); setTimeout(placeInd, 500); drawTab();
+  const rg = $('#regen'); rg.onclick = () => { if (approved && rg.dataset.sure !== '1') { rg.dataset.sure = '1'; rg.classList.add('warn'); rg.textContent = 'Reinicia la producción · confirmar'; return; } genScript(); show(v3Writing); };
+  $('#approve').onclick = async e => {
+    if (approved) return goStep(4);
+    try { const r = await act(e.currentTarget, () => call('script.approve'), 'Aprobado'); S.project = r.project; goStep(4); } catch (x) {}
+  };
+}
+const WRITING = ['Leyendo la evidencia de la tendencia', 'Cruzando el dolor de tu cliente con el formato', 'Escribiendo tres hooks distintos', 'Cronometrando la escaleta', 'Redactando copies y la respuesta al DM', 'Componiendo los prompts de cada escena', 'Diseñando las láminas del carrusel'];
+function v3Writing(el) {
+  el.innerHTML = `${ctxChips()}<div class="head"><span class="eyebrow">Paso 3 · Guion</span>${H('Escribiendo|tu *guion*.')}</div>
+  <div class="writing" data-r><span class="spin"></span><span id="wLine">${WRITING[0]}</span><span class="faint mono" id="wT">00:00</span></div>
+  <div class="hooks" data-r><div class="skel" style="height:120px"></div><div class="skel" style="height:120px"></div><div class="skel" style="height:120px"></div></div>
+  <div class="skel" data-r style="height:58px"></div><div class="skel" data-r style="height:180px"></div>`;
+  const t0 = Date.now(); let i = 0;
+  const iv = setInterval(() => {
+    const l = $('#wLine', el); if (!l) return clearInterval(iv);
+    $('#wT', el).textContent = elapsed(t0);
+    if ((Date.now() - t0) / 1000 > (i + 1) * 5 && i < WRITING.length - 1) {
+      i++;
+      if (reduced) { l.textContent = WRITING[i]; return; }
+      l.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: 250, fill: 'forwards' }).finished.then(() => { l.textContent = WRITING[i]; l.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 400, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' }); });
+    }
+  }, 500);
+}
+async function genScript() {
+  if (S.genScript) return; S.genScript = true;
+  try {
+    const st = await call('script.start'); S.user.credits = st.credits; renderTop();
+    const r = await poll('script.poll', { jobId: st.jobId }, null, 3500);
+    S.project = r.project; S.beat = 0; S.tab = 'copies'; S.genScript = false;
+    if (S.step === 3) show(v3Script);
+  } catch (e) { S.genScript = false; fail(e); if (S.step === 3) show(v3Script); }
+}
+
+/* ---------- Paso 4 · Producción ---------- */
+const ENG = { openai: 'OpenAI', nanobanana: 'Nano Banana', veo: 'Veo' };
+function takesFor(ref) { return S.project.assets.filter(a => a.ref === ref); }
+function tileHTML(kind, i, data) {
+  const ref = (kind === 'v' ? 'scene-' : 'slide-') + i, takes = takesFor(ref), job = S.jobs[ref];
+  const ti = Math.min(S.take[ref] ?? takes.length - 1, takes.length - 1), a = takes[ti];
+  const picked = a && S.picked.has(a.id), c = S.cfg.costs, eng = S.cfg.engines;
+  let media;
+  if (!a) media = `<div class="ph"><span class="n">${pad(i + 1)}</span><b>${esc(kind === 'v' ? data.on_screen_text : data.headline)}</b><small>${esc(kind === 'v' ? `${data.start}–${data.end} s · ${data.role}` : data.role)}</small></div>`;
+  else if (a.kind === 'video') media = S.playing === a.id ? `<iframe src="${esc(a.url)}" allow="autoplay" title="${esc(a.label)}"></iframe>` : `<img src="${esc(a.thumb || '')}" alt="${esc(a.label)}"><button class="play" data-play="${a.id}" aria-label="Reproducir ${esc(a.label)}"><span>${ICON.play}</span></button>`;
+  else media = `<img src="${esc(S.dataUrls[a.id] || a.url)}" alt="${esc(a.label)}">`;
+  const acts = kind === 'v'
+    ? `<button class="btn" data-img="nanobanana" data-type="scene" data-i="${i}" ${eng.nanobanana && !job ? '' : 'disabled'}>Fotograma · ${c.image_nanobanana}</button><button class="btn ${takes.some(t => t.kind === 'image') ? 'accent' : ''}" data-vid="${i}" ${eng.veo && !job ? '' : 'disabled'}>Clip · ${c.video_veo}</button>`
+    : `<button class="btn" data-img="openai" data-type="slide" data-i="${i}" ${eng.openai && !job ? '' : 'disabled'}>OpenAI · ${c.image_openai}</button><button class="btn" data-img="nanobanana" data-type="slide" data-i="${i}" ${eng.nanobanana && !job ? '' : 'disabled'}>Nano Banana · ${c.image_nanobanana}</button>`;
+  return `<div class="tile ${kind} ${picked ? 'picked' : ''}" data-ref="${ref}">
+    <div class="frame">${media}
+      ${a ? `<button class="pick" data-pickid="${a.id}" aria-pressed="${!!picked}" aria-label="Elegir para publicar">${ICON.check}</button>` : ''}
+      ${takes.length > 1 ? `<div class="takes">${takes.map((t, k) => `<button data-take="${k}" aria-pressed="${k === ti}" aria-label="Toma ${k + 1}">${k + 1}</button>`).join('')}</div>` : ''}
+      ${job ? `<div class="working"><span class="spin"></span>${esc(job.label)}<span class="mono" data-jt="${ref}">${elapsed(job.t0)}</span></div>` : ''}
+    </div>
+    <div class="meta"><span>${kind === 'v' ? 'Escena' : 'Lámina'} ${i + 1}</span><span>${a ? ENG[a.engine] || '' : ''}</span></div>
+    <div class="acts">${acts}</div></div>`;
+}
+function v4Production(el) {
+  const s = S.project.script;
+  if (!S.picked.size && S.project.approved) S.project.approved.forEach(id => S.picked.add(id));
+  el.innerHTML = `${ctxChips()}<div class="head"><span class="eyebrow">Paso 4 · Producción</span>${H('Dale *forma*|a cada escena.', 'sm')}<p class="lede" data-r>Genera el fotograma de una escena con Nano Banana y Veo animará el clip desde esa imagen. Marca con el círculo las piezas que vas a publicar.</p></div>
+  <section class="stack" data-r><div class="between"><h3 style="font-size:1.15rem">Video · ${s.video.scenes.length} escenas</h3><button class="btn sm" data-batch="keyframes" ${S.cfg.engines.nanobanana ? '' : 'disabled'}>Fotogramas de todas</button></div><div class="reel">${s.video.scenes.map((sc, i) => tileHTML('v', i, sc)).join('')}</div></section>
+  <section class="stack" data-r><div class="between"><h3 style="font-size:1.15rem">Carrusel · ${s.carousel.items.length} láminas</h3><div class="row"><button class="btn sm" data-batch="openai" ${S.cfg.engines.openai ? '' : 'disabled'}>Todas con OpenAI</button><button class="btn sm" data-batch="nanobanana" ${S.cfg.engines.nanobanana ? '' : 'disabled'}>Todas con Nano Banana</button></div></div><div class="reel">${s.carousel.items.map((it, i) => tileHTML('c', i, it)).join('')}</div></section>`;
+  el.addEventListener('click', e => {
+    const im = e.target.closest('[data-img]'); if (im && !im.disabled) return shootImage(im.dataset.img, im.dataset.type, +im.dataset.i);
+    const v = e.target.closest('[data-vid]'); if (v && !v.disabled) return shootVideo(+v.dataset.vid);
+    const bt = e.target.closest('[data-batch]'); if (bt && !bt.disabled) return batch(bt.dataset.batch, bt);
+    const pk = e.target.closest('[data-pickid]');
+    if (pk) {
+      const id = pk.dataset.pickid; S.picked.has(id) ? S.picked.delete(id) : S.picked.add(id); const on = S.picked.has(id);
+      pk.setAttribute('aria-pressed', on); pk.closest('.tile').classList.toggle('picked', on);
+      if (!reduced) pk.animate([{ transform: 'scale(.7)' }, { transform: 'scale(1.25)' }, { transform: on ? 'scale(1.1)' : 'scale(1)' }], { duration: 450, easing: 'cubic-bezier(.34,1.56,.64,1)' });
+      renderDock(); return;
+    }
+    const tk = e.target.closest('[data-take]'); if (tk) { const ref = tk.closest('.tile').dataset.ref; S.take[ref] = +tk.dataset.take; redrawTile(ref, true); return; }
+    const pl = e.target.closest('[data-play]'); if (pl) { S.playing = pl.dataset.play; redrawTile(pl.closest('.tile').dataset.ref); }
+  });
+}
+function redrawTile(ref, reveal) {
+  const t = $(`.tile[data-ref="${ref}"]`); if (!t) return;
+  const [kind, i] = ref.split('-'), s = S.project.script, data = kind === 'scene' ? s.video.scenes[+i] : s.carousel.items[+i];
+  const tmp = document.createElement('div'); tmp.innerHTML = tileHTML(kind === 'scene' ? 'v' : 'c', +i, data); const nt = tmp.firstElementChild;
+  t.replaceWith(nt);
+  if (reveal && !reduced) { const m = $('.frame img', nt); if (m) m.animate([{ clipPath: 'inset(0 0 100% 0)', filter: 'blur(16px)', transform: 'scale(1.12)' }, { clipPath: 'inset(0 0 0 0)', filter: 'blur(0)', transform: 'scale(1)' }], { duration: 1300, easing: 'cubic-bezier(.16,1,.3,1)' }); }
+}
+setInterval(() => Object.keys(S.jobs).forEach(ref => { const e = $(`[data-jt="${ref}"]`); if (e) e.textContent = elapsed(S.jobs[ref].t0); }), 1000);
+function renderDock() {
+  const d = $('#dock'), n = S.picked.size, on = S.inPipeline && S.step === 4 && n > 0;
+  d.classList.toggle('on', on); d.setAttribute('aria-hidden', String(!on));
+  if (!on) return;
+  d.innerHTML = `<span>${n} pieza${n === 1 ? '' : 's'} para publicar</span><button class="btn sm" id="approveSel">Aprobar y continuar <span class="arrow">→</span></button>`;
+  $('#approveSel').onclick = async e => { try { const r = await act(e.currentTarget, () => call('assets.approve', { ids: [...S.picked] }), 'Aprobadas'); S.project = r.project; d.classList.remove('on'); goStep(5); } catch (x) {} };
+}
+async function shootImage(engine, type, i) {
+  const ref = type + '-' + i; if (S.jobs[ref]) return;
+  S.jobs[ref] = { t0: Date.now(), label: ENG[engine] + ' generando' }; redrawTile(ref);
+  try {
+    const r = await call('asset.image', { engine, ref: { type, index: i } });
+    if (r.dataUrl) S.dataUrls[r.asset.id] = r.dataUrl; S.user.credits = r.credits; S.project = r.project; delete S.take[ref];
+    delete S.jobs[ref]; renderTop(); redrawTile(ref, true);
+  } catch (e) { delete S.jobs[ref]; redrawTile(ref); fail(e); }
+}
+async function shootVideo(i) {
+  const ref = 'scene-' + i; if (S.jobs[ref]) return;
+  S.jobs[ref] = { t0: Date.now(), label: 'Preparando el clip' }; redrawTile(ref);
+  try {
+    const st = await call('asset.videoStart', { scene: i }); S.user.credits = st.credits; renderTop();
+    S.jobs[ref].label = st.fromKeyframe ? 'Veo animando el fotograma' : 'Veo generando el clip'; redrawTile(ref);
+    const r = await poll('asset.videoPoll', { jobId: st.jobId }, null, 10000, 60);
+    S.project = r.project; delete S.take[ref]; delete S.jobs[ref]; redrawTile(ref, true); toast(`Clip de la escena ${i + 1} listo.`);
+  } catch (e) { delete S.jobs[ref]; redrawTile(ref); fail(e); }
+}
+async function batch(kind, btn) {
+  btn.disabled = true; const s = S.project.script;
+  try {
+    if (kind === 'keyframes') { for (let i = 0; i < s.video.scenes.length; i++) await shootImage('nanobanana', 'scene', i); }
+    else { for (let i = 0; i < s.carousel.items.length; i++) await shootImage(kind, 'slide', i); }
+  } finally { if (btn.isConnected) btn.disabled = false; }
+}
+
+/* ---------- Paso 5 · Publicación ---------- */
+function v5Publish(el) {
+  const p = S.project, s = p.script, appr = p.assets.filter(a => p.approved.includes(a.id));
+  const names = { instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn', dm_autoreply: 'Respuesta automática al DM', whatsapp: 'Cierre por WhatsApp' };
+  const draft = store.get('kit_' + p.id) || {};
+  el.innerHTML = `${ctxChips()}<div class="head"><span class="eyebrow">Paso 5 · Publicación</span>${H('Todo listo para|*publicar*.', 'sm')}<p class="lede" data-r>Ajusta los textos finales, agenda las fechas y guarda la campaña: un documento en Drive con copies, respuesta al DM, mensaje de cierre y enlaces a cada pieza.</p></div>
+  <div class="reel" data-r>${appr.map(a => `<div class="tile ${a.ref.startsWith('scene') ? 'v' : 'c'}"><div class="frame"><img src="${esc(a.kind === 'video' ? a.thumb : (S.dataUrls[a.id] || a.url))}" alt="${esc(a.label)}">${a.kind === 'video' ? `<div class="play" style="pointer-events:none"><span>${ICON.play}</span></div>` : ''}</div></div>`).join('')}</div>
+  <div class="copies">${Object.keys(names).map(k => `<div class="copy" data-r><div class="between"><b>${names[k]}</b><button class="btn sm" data-copy="fc_${k}">Copiar</button></div><textarea class="input" id="fc_${k}" data-kit="${k}">${esc(draft[k] ?? s.copies[k])}</textarea></div>`).join('')}</div>
+  <div class="grid2">
+    <div class="card stack" data-r><h3 style="font-size:1.1rem">Calendario</h3><p class="muted" style="font-size:.9rem">Sugerido por el guionista: ${esc((s.posting.best_times || []).join(' · '))}</p>${[1, 2, 3].map(n => `<div class="field"><label for="d${n}">Publicación ${n}</label><input class="input" id="d${n}" type="datetime-local"></div>`).join('')}</div>
+    <div class="card stack" data-r><h3 style="font-size:1.1rem">Lo que puede vender</h3>
+      <div class="grid3"><div class="field"><label for="f_reach">Alcance por pieza</label><input class="input" id="f_reach" type="number" value="8000" min="0"></div><div class="field"><label for="f_kw">% comenta la clave</label><input class="input" id="f_kw" type="number" value="1.2" step="0.1" min="0"></div><div class="field"><label for="f_ticket">Ticket USD</label><input class="input" id="f_ticket" type="number" value="180" min="0"></div></div>
+      <div class="grid2"><div class="field"><label for="f_lead">% DM a lead</label><input class="input" id="f_lead" type="number" value="45" min="0"></div><div class="field"><label for="f_close">% lead a venta</label><input class="input" id="f_close" type="number" value="18" min="0"></div></div>
+      <div class="funnel" id="funnel"></div><div><span class="lbl">Ingreso estimado con tus supuestos</span><div class="money num" id="money">$0</div></div></div>
+  </div>
+  <div class="row" data-r><button class="btn accent" id="saveKit">Guardar campaña en Drive <span class="arrow">→</span></button></div>`;
+  $$('[data-kit]', el).forEach(t => t.addEventListener('input', () => { const d = store.get('kit_' + p.id) || {}; d[t.dataset.kit] = t.value; store.set('kit_' + p.id, d); }));
+  $$('input[type=number]', el).forEach(i => i.addEventListener('input', drawFunnel));
+  setTimeout(drawFunnel, 500);
+  $('#saveKit').onclick = async e => {
+    const copies = {}; $$('[data-kit]', el).forEach(t => copies[t.dataset.kit] = t.value);
+    const schedule = [1, 2, 3].map(n => $('#d' + n).value).filter(Boolean).map(v => new Date(v).toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' }));
+    try { const r = await act(e.currentTarget, () => call('publish.save', { kit: { copies, schedule } }), 'Guardada'); S.project = r.project; store.del('kit_' + p.id); show(v5Done); } catch (x) {}
+  };
+}
+function drawFunnel() {
+  if (!$('#funnel')) return;
+  const v = id => +$('#' + id).value || 0, n = Math.max(1, S.project.approved.length);
+  const reach = n * v('f_reach'), c = reach * v('f_kw') / 100, l = c * v('f_lead') / 100, s = l * v('f_close') / 100;
+  const mx = Math.log10(reach + 1) || 1;
+  $('#funnel').innerHTML = [['Alcance', reach], ['Comentan la clave', c], ['Leads', l], ['Ventas', s]].map(([k, x]) => `<div class="fstep"><span>${k}</span><div class="fbar"><i data-w="${Math.max(2, Math.log10(x + 1) / mx * 100)}"></i></div><span class="num">${fmtN(x)}</span></div>`).join('');
+  requestAnimationFrame(() => requestAnimationFrame(() => $$('#funnel i').forEach(i => i.style.width = i.dataset.w + '%')));
+  const m = $('#money'), to = s * v('f_ticket');
+  if (reduced) { m.textContent = '$' + fmtN(to); return; }
+  const from = +m.dataset.v || 0, t0 = performance.now(); m.dataset.v = to;
+  (function f(t) { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 4); m.textContent = '$' + Math.round(from + (to - from) * e).toLocaleString('en-US'); if (k < 1) requestAnimationFrame(f); })(t0);
+}
+function v5Done(el) {
+  const p = S.project, pub = p.publish || {}, n = p.approved.length;
+  el.innerHTML = `<div class="done-hero"><span class="eyebrow">Campaña ${esc(p.id)}</span>${H('Campaña|*lista*.')}
+    <p class="lede" data-r>${n} pieza${n === 1 ? '' : 's'} aprobada${n === 1 ? '' : 's'}, copies para cada red, respuesta al DM y mensaje de cierre, guardados en Drive.</p>
+    <div class="row" data-r>${pub.docUrl ? `<a class="btn primary" href="${esc(pub.docUrl)}" target="_blank" rel="noopener">Abrir documento de la campaña</a>` : ''}${pub.folderUrl ? `<a class="btn" href="${esc(pub.folderUrl)}" target="_blank" rel="noopener">Carpeta en Drive</a>` : ''}</div>
+    <div class="row" data-r><button class="btn accent" id="again">Nueva campaña <span class="arrow">→</span></button><button class="btn ghost" id="edit">Editar textos</button></div></div>`;
+  $('#again').onclick = newCampaign;
+  $('#edit').onclick = () => show(v5Publish, { dir: -1 });
+}
+
+/* ===================================================================
+   Negocio (administradores)
+   =================================================================== */
+async function openBiz() {
+  const sh = $('#sheet'); sh.hidden = false; sh.innerHTML = `<div class="card stack"><div class="skel" style="height:200px"></div></div>`;
+  if (!reduced) sh.firstElementChild.animate([{ opacity: 0, transform: 'translateY(30px) scale(.97)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 650, easing: 'cubic-bezier(.16,1,.3,1)' });
+  try {
+    const { overview: o } = await call('admin.overview');
+    sh.firstElementChild.innerHTML = `<div class="between"><h3 style="font-size:1.3rem">Negocio</h3><button class="btn sm ghost" id="closeSheet">Cerrar</button></div>
+      <div class="kpis"><div class="kpi"><span class="lbl">MRR</span><b class="num">$${fmtN(o.mrr)}</b></div><div class="kpi"><span class="lbl">Usuarios</span><b class="num">${fmtN(o.users)}</b></div><div class="kpi"><span class="lbl">Créditos usados · 30 días</span><b class="num">${fmtN(o.creditsUsed30d)}</b></div><div class="kpi"><span class="lbl">Campañas</span><b class="num">${fmtN(o.projects)}</b></div></div>
+      <div class="chips">${Object.entries(o.byPlan).map(([k, v]) => `<span class="chip">${esc(k)} · ${v}</span>`).join('')}</div>
+      <form class="stack" id="grant"><span class="lbl">Asignar créditos</span><div class="grid3"><div class="field"><label for="g_e">Correo</label><input class="input" id="g_e" type="email"></div><div class="field"><label for="g_c">Créditos</label><input class="input" id="g_c" type="number" value="600"></div><div class="field"><label for="g_p">Plan</label><select class="input" id="g_p"><option value="">Sin cambio</option><option>starter</option><option>growth</option><option>agencia</option></select></div></div><div class="row"><button class="btn primary" type="submit">Asignar</button></div></form>`;
+    $('#closeSheet').onclick = () => sh.hidden = true;
+    $('#grant').onsubmit = async ev => { ev.preventDefault(); try { const r = await act($('#grant button'), () => call('admin.grant', { email: $('#g_e').value, credits: +$('#g_c').value, plan: $('#g_p').value }), 'Asignados'); toast(r.granted + ' créditos asignados.'); } catch (x) {} };
+  } catch (e) { fail(e); sh.hidden = true; }
+}
+$('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') e.target.hidden = true; });
+let rzT; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(renderTop, 120); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenu(); $('#sheet').hidden = true; } });
+
+/* ===================================================================
+   Arranque
+   =================================================================== */
+async function boot() {
+  if (!IS_GAS && !API_URL) return show(vConnect);
+  S.token = sess.get('token');
+  if (S.token) { try { await loadAndRoute(); return; } catch (e) { S.token = null; sess.del('token'); } }
+  try { const b = await call('boot.status'); show(b.claimed ? vEmail : vClaim); }
+  catch (e) { toast(e.message, true); if (!IS_GAS) show(vConnect); }
+}
+boot();
+</script>
